@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - STORAGE_DIR=/app/storage
+      - PYTHON_PATH=python3
+      - MAX_CONCURRENT=2
+    volumes:
+      - ./backend/storage:/app/storage
+      - ./python:/app/python
+    depends_on:
+      - python-base
+    networks:
+      - dsa-network
+
+  python-base:
+    build:
+      context: ./python
+      dockerfile: Dockerfile
+    volumes:
+      - ./python:/app
+      - python-cache:/root/.cache
+    networks:
+      - dsa-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+    networks:
+      - dsa-network
+
+volumes:
+  python-cache:
+
+networks:
+  dsa-network:
+    driver: bridge

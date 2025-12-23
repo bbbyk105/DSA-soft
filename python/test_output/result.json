@@ -1,0 +1,27 @@
+{
+  "status": "success",
+  "uniprot_id": "P00915",
+  "parameters": {
+    "sequence_ratio": 0.7,
+    "min_structures": 5,
+    "xray_only": true,
+    "negative_pdbid": ""
+  },
+  "statistics": {
+    "uniprot_id": "P00915",
+    "entries": 53,
+    "chains": 98,
+    "length": 255,
+    "length_percent": 97.7,
+    "umf": 160.5,
+    "resolution": 1.76
+  },
+  "score_summary": {
+    "total_pairs": 28680,
+    "mean_score": 160.48670125770153,
+    "max_score": 406.4990198344636,
+    "min_score": 12.831974631324817,
+    "mean_distance": 22.890777474316828,
+    "mean_std": 0.15230940257609216
+  }
+}

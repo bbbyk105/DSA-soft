@@ -14,6 +14,8 @@ export interface Job {
   status: "queued" | "running" | "done" | "failed";
   progress: number;
   message: string;
+  // バックエンドの Job 構造体に合わせて UniProt ID を保持
+  uniprot_id?: string;
   result?: {
     json_url: string;
     heatmap_url: string;

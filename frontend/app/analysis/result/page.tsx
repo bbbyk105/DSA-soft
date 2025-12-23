@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { getJob, getResultUrl, type Job } from "@/lib/api";
 import dynamic from "next/dynamic";
 
@@ -116,6 +117,15 @@ function ResultContent() {
   return (
     <div className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-6xl mx-auto">
+        <div className="mb-4">
+          <Link
+            href="/analysis"
+            className="inline-flex items-center text-blue-600 hover:underline"
+          >
+            <span className="mr-1">←</span>
+            Home に戻る
+          </Link>
+        </div>
         <h1 className="text-3xl font-bold mb-2">
           DSA 解析結果 - {stats.uniprot_id || result.uniprot_id}
         </h1>

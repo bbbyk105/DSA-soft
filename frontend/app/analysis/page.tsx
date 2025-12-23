@@ -19,6 +19,7 @@ export default function AnalysisPage() {
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [displayProgress, setDisplayProgress] = useState(0);
 
   useEffect(() => {
     if (jobId) {
@@ -26,6 +27,13 @@ export default function AnalysisPage() {
         try {
           const jobData = await getJob(jobId);
           setJob(jobData);
+
+          // 実際の進捗が現在表示より大きい場合は追いつかせる
+          if (typeof jobData.progress === "number") {
+            setDisplayProgress((prev) =>
+              jobData.progress > prev ? jobData.progress : prev
+            );
+          }
 
           if (jobData.status === "done" || jobData.status === "failed") {
             clearInterval(interval);
@@ -42,6 +50,31 @@ export default function AnalysisPage() {
       return () => clearInterval(interval);
     }
   }, [jobId, router]);
+
+  // 擬似的にプログレスバーを滑らかに動かすエフェクト
+  useEffect(() => {
+    if (!job) return;
+
+    // 完了 or 失敗時は確定値にする
+    if (job.status === "done") {
+      setDisplayProgress(100);
+      return;
+    }
+    if (job.status === "failed") {
+      // 失敗時は現在値を維持
+      return;
+    }
+
+    // 実行中は 95% までゆっくり伸ばす
+    const interval = setInterval(() => {
+      setDisplayProgress((prev) => {
+        if (prev >= 95) return prev;
+        return prev + 2;
+      });
+    }, 800);
+
+    return () => clearInterval(interval);
+  }, [job]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +105,7 @@ export default function AnalysisPage() {
         progress: 0,
         message: "Job queued",
       });
+      setDisplayProgress(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create job");
     } finally {
@@ -273,10 +307,12 @@ export default function AnalysisPage() {
                   <div className="w-full bg-gray-200 rounded-full h-2.5">
                     <div
                       className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                      style={{ width: `${job.progress}%` }}
+                      style={{ width: `${displayProgress}%` }}
                     ></div>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">{job.progress}%</p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {Math.round(displayProgress)}%
+                  </p>
                 </div>
 
                 {job.status === "failed" && (

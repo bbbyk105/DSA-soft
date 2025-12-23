@@ -235,6 +235,9 @@ func (m *Manager) executeJob(job *Job) {
 	}
 	fmt.Printf("[DEBUG] Command executed successfully\n")
 
+	// Python処理完了後の進捗更新
+	m.updateJobStatus(job, StatusRunning, 60, "Processing result files...")
+
 	// 結果ファイルの存在確認
 	resultPath := filepath.Join(jobDir, "result.json")
 	if _, err := os.Stat(resultPath); os.IsNotExist(err) {
@@ -254,6 +257,9 @@ func (m *Manager) executeJob(job *Job) {
 		m.updateJobStatus(job, StatusFailed, 0, fmt.Sprintf("Failed to parse result: %v", err))
 		return
 	}
+
+	// 結果JSONのパース完了時点でさらに進捗を更新
+	m.updateJobStatus(job, StatusRunning, 80, "Finalizing analysis result...")
 
 	if status, ok := result["status"].(string); ok && status == "failed" {
 		errorMsg := "Analysis failed"

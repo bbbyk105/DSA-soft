@@ -151,27 +151,65 @@ export async function cancelAnalysis(
 export async function deleteAnalysis(
   id: string
 ): Promise<{ message: string; analysis_id: string }> {
+  const url = `${API_BASE_URL}/api/analyses/${id}`;
+
+  console.log("[API] deleteAnalysis called with:", { id, url, API_BASE_URL });
+
   try {
-    const response = await fetch(`${API_BASE_URL}/api/analyses/${id}`, {
+    const response = await fetch(url, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
       },
     });
 
+    console.log("[API] deleteAnalysis response:", {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+    });
+
     if (!response.ok) {
-      const error = await response
-        .json()
-        .catch(() => ({
-          error: `HTTP ${response.status}: ${response.statusText}`,
-        }));
-      throw new Error(error.error || "Failed to delete analysis");
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      let errorBody = null;
+      try {
+        errorBody = await response.json();
+        errorMessage = errorBody.error || errorMessage;
+        console.error("[API] deleteAnalysis error response:", errorBody);
+      } catch (parseErr) {
+        // JSON解析に失敗した場合はデフォルトメッセージを使用
+        console.error(
+          "[API] deleteAnalysis failed to parse error response:",
+          parseErr
+        );
+        try {
+          const text = await response.text();
+          console.error("[API] deleteAnalysis error response text:", text);
+        } catch (textErr) {
+          console.error(
+            "[API] deleteAnalysis failed to read error response:",
+            textErr
+          );
+        }
+      }
+      throw new Error(errorMessage);
     }
 
-    return response.json();
+    const result = await response.json();
+    console.log("[API] deleteAnalysis success:", result);
+    return result;
   } catch (err) {
+    console.error("[API] deleteAnalysis exception:", err);
     if (err instanceof TypeError && err.message.includes("fetch")) {
-      throw new Error("ネットワークエラー: バックエンドに接続できませんでした");
+      const networkError = new Error(
+        `ネットワークエラー: バックエンドに接続できませんでした (URL: ${url})`
+      );
+      console.error("[API] Network error details:", {
+        url,
+        API_BASE_URL,
+        error: err,
+      });
+      throw networkError;
     }
     throw err;
   }

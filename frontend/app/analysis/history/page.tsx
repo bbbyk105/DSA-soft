@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -35,27 +35,8 @@ function HistoryContent() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    fetchAnalyses();
-  }, [uniprotId, method, status, fromDate, toDate]);
-
-  // 進行中のジョブをポーリング
-  useEffect(() => {
-    const hasRunningJobs = analyses.some(
-      (a) => a.status === "queued" || a.status === "running"
-    );
-
-    if (!hasRunningJobs) return;
-
-    const interval = setInterval(() => {
-      fetchAnalyses();
-    }, 2000); // 2秒ごとに更新
-
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analyses.length, analyses.map((a) => a.status).join(",")]);
-
-  const fetchAnalyses = async () => {
+  // fetchAnalysesをuseCallbackでメモ化
+  const fetchAnalyses = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -78,7 +59,33 @@ function HistoryContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [uniprotId, method, status, fromDate, toDate]);
+
+  // フィルター変更時にフェッチ
+  useEffect(() => {
+    fetchAnalyses();
+  }, [fetchAnalyses]);
+
+  // 進行中のジョブのIDリストをメモ化
+  const runningJobIds = useMemo(
+    () =>
+      analyses
+        .filter((a) => a.status === "queued" || a.status === "running")
+        .map((a) => a.id)
+        .join(","),
+    [analyses]
+  );
+
+  // 進行中のジョブをポーリング
+  useEffect(() => {
+    if (!runningJobIds) return;
+
+    const interval = setInterval(() => {
+      fetchAnalyses();
+    }, 2000); // 2秒ごとに更新
+
+    return () => clearInterval(interval);
+  }, [runningJobIds, fetchAnalyses]);
 
   const handleRerun = async (id: string) => {
     try {
@@ -94,10 +101,18 @@ function HistoryContent() {
       return;
     }
     try {
+      // 即座にローカル状態を更新
+      setAnalyses((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, status: "cancelled" as const } : a
+        )
+      );
       await cancelAnalysis(id);
-      // 履歴を再取得
-      fetchAnalyses();
+      // 履歴を再取得して最新状態を反映
+      await fetchAnalyses();
     } catch (err) {
+      // エラーが発生した場合は元に戻す
+      await fetchAnalyses();
       alert(err instanceof Error ? err.message : "Failed to cancel analysis");
     }
   };
@@ -108,15 +123,34 @@ function HistoryContent() {
     }
     try {
       console.log("[History] Deleting analysis:", id);
-      await deleteAnalysis(id);
-      console.log("[History] Analysis deleted successfully");
-      // 履歴を再取得
-      fetchAnalyses();
+      console.log(
+        "[History] API_BASE_URL:",
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      );
+
+      // 即座にローカル状態から削除（楽観的更新）
+      setAnalyses((prev) => prev.filter((a) => a.id !== id));
+
+      const result = await deleteAnalysis(id);
+      console.log("[History] Analysis deleted successfully:", result);
+
+      // 履歴を再取得して最新状態を反映
+      await fetchAnalyses();
     } catch (err) {
       console.error("[History] Error deleting analysis:", err);
+      console.error("[History] Error details:", {
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+
+      // エラーが発生した場合は再取得して元に戻す
+      await fetchAnalyses();
+
       const errorMessage =
         err instanceof Error ? err.message : "Failed to delete analysis";
-      alert(`削除に失敗しました: ${errorMessage}`);
+      alert(
+        `削除に失敗しました: ${errorMessage}\n\n詳細はブラウザのコンソールを確認してください。`
+      );
     }
   };
 
@@ -447,15 +481,17 @@ function HistoryContent() {
 
 export default function HistoryPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen p-8 bg-gray-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <p>Loading...</p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen p-8 bg-gray-50">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-white p-6 rounded-lg shadow-md">
+              <p>Loading...</p>
+            </div>
           </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <HistoryContent />
     </Suspense>
   );

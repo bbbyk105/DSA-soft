@@ -669,6 +669,7 @@ func (r *Routes) deleteAnalysis(c *fiber.Ctx) error {
 	id := c.Params("id")
 	
 	if id == "" {
+		fmt.Printf("[ERROR] Delete request with empty ID\n")
 		return c.Status(400).JSON(fiber.Map{
 			"error": "Analysis ID is required",
 		})
@@ -684,10 +685,14 @@ func (r *Routes) deleteAnalysis(c *fiber.Ctx) error {
 	}
 
 	fmt.Printf("[DEBUG] Analysis %s deleted successfully\n", id)
-	return c.JSON(fiber.Map{
+	
+	response := fiber.Map{
 		"message":    "Analysis deleted successfully",
 		"analysis_id": id,
-	})
+	}
+	
+	fmt.Printf("[DEBUG] Sending delete response: %+v\n", response)
+	return c.JSON(response)
 }
 
 func (r *Routes) updateMetricsForAll(c *fiber.Ctx) error {

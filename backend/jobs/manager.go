@@ -1,6 +1,8 @@
 package jobs
 
 import (
+	"context"
+	"dsa-api/storage"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,10 +17,11 @@ import (
 type JobStatus string
 
 const (
-	StatusQueued  JobStatus = "queued"
-	StatusRunning JobStatus = "running"
-	StatusDone    JobStatus = "done"
-	StatusFailed  JobStatus = "failed"
+	StatusQueued   JobStatus = "queued"
+	StatusRunning  JobStatus = "running"
+	StatusDone     JobStatus = "done"
+	StatusFailed   JobStatus = "failed"
+	StatusCancelled JobStatus = "cancelled"
 )
 
 type Job struct {
@@ -32,6 +35,10 @@ type Job struct {
 	ErrorMessage string                `json:"error_message,omitempty"`
 	CreatedAt   time.Time              `json:"created_at"`
 	UpdatedAt   time.Time              `json:"updated_at"`
+	// For cancellation
+	cmd    *exec.Cmd
+	cancel context.CancelFunc
+	mu     sync.Mutex
 }
 
 type JobResult struct {
@@ -41,12 +48,16 @@ type JobResult struct {
 }
 
 type Manager struct {
-	jobs      map[string]*Job
-	mu        sync.RWMutex
-	storageDir string
-	pythonPath string
+	jobs         map[string]*Job
+	mu           sync.RWMutex
+	storageDir   string
+	pythonPath   string
 	maxConcurrent int
 	semaphore    chan struct{}
+	// Optional: DB and R2 for persistence
+	db  *storage.DB
+	r2  *storage.R2Client
+	ctx context.Context
 }
 
 func NewManager(storageDir, pythonPath string, maxConcurrent int) *Manager {
@@ -59,7 +70,15 @@ func NewManager(storageDir, pythonPath string, maxConcurrent int) *Manager {
 		pythonPath:   pythonPath,
 		maxConcurrent: maxConcurrent,
 		semaphore:    make(chan struct{}, maxConcurrent),
+		ctx:          context.Background(),
 	}
+}
+
+func NewManagerWithPersistence(storageDir, pythonPath string, maxConcurrent int, db *storage.DB, r2 *storage.R2Client) *Manager {
+	m := NewManager(storageDir, pythonPath, maxConcurrent)
+	m.db = db
+	m.r2 = r2
+	return m
 }
 
 func (m *Manager) CreateJob(uniprotID string, params map[string]interface{}) (*Job, error) {
@@ -90,6 +109,26 @@ func (m *Manager) CreateJob(uniprotID string, params map[string]interface{}) (*J
 		return nil, err
 	}
 
+	// DBに記録（オプショナル）
+	if m.db != nil {
+		method := "all"
+		if xrayOnly, ok := params["xray_only"].(bool); ok && xrayOnly {
+			method = "X-ray"
+		}
+		record := &storage.AnalysisRecord{
+			ID:        jobID,
+			UniProtID: uniprotID,
+			Method:    method,
+			Status:    "queued",
+			Params:    params,
+			CreatedAt: job.CreatedAt,
+		}
+		if err := m.db.CreateAnalysis(record); err != nil {
+			fmt.Printf("[WARN] Failed to create analysis in DB: %v\n", err)
+			// DBエラーは無視して続行（既存の動作を維持）
+		}
+	}
+
 	// 非同期でジョブを実行
 	go m.executeJob(job)
 
@@ -108,10 +147,95 @@ func (m *Manager) GetJob(jobID string) (*Job, error) {
 	return job, nil
 }
 
+func (m *Manager) CancelJob(jobID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	job, exists := m.jobs[jobID]
+	if !exists {
+		// ディスクから読み込む
+		var err error
+		job, err = m.loadJob(jobID)
+		if err != nil {
+			return fmt.Errorf("job not found: %w", err)
+		}
+	}
+
+	// ジョブが実行中またはキュー待ちの場合のみキャンセル可能
+	if job.Status != StatusQueued && job.Status != StatusRunning {
+		return fmt.Errorf("job is not cancellable (status: %s)", job.Status)
+	}
+
+	// キャンセル関数を呼び出し
+	job.mu.Lock()
+	if job.cancel != nil {
+		job.cancel()
+	}
+	// コマンドプロセスを強制終了
+	if job.cmd != nil && job.cmd.Process != nil {
+		job.cmd.Process.Kill()
+	}
+	job.mu.Unlock()
+
+	// ステータスを更新
+	m.updateJobStatus(job, StatusCancelled, 0, "Analysis cancelled by user")
+
+	// DBを更新（オプショナル）
+	if m.db != nil {
+		if err := m.db.UpdateAnalysisStatus(jobID, string(StatusCancelled), nil, "Analysis cancelled by user", nil); err != nil {
+			fmt.Printf("[WARN] Failed to update analysis status in DB: %v\n", err)
+		}
+	}
+
+	return nil
+}
+
+func (m *Manager) DeleteJob(jobID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	job, exists := m.jobs[jobID]
+	if exists {
+		// 実行中のジョブをキャンセル
+		if job.Status == StatusRunning || job.Status == StatusQueued {
+			job.mu.Lock()
+			if job.cancel != nil {
+				job.cancel()
+			}
+			if job.cmd != nil && job.cmd.Process != nil {
+				job.cmd.Process.Kill()
+			}
+			job.mu.Unlock()
+		}
+		delete(m.jobs, jobID)
+	}
+
+	// ストレージディレクトリを削除
+	jobDir := filepath.Join(m.storageDir, jobID)
+	if err := os.RemoveAll(jobDir); err != nil {
+		fmt.Printf("[WARN] Failed to delete job directory: %v\n", err)
+	}
+
+	// DBから削除（オプショナル）
+	if m.db != nil {
+		if err := m.db.DeleteAnalysis(jobID); err != nil {
+			fmt.Printf("[WARN] Failed to delete analysis from DB: %v\n", err)
+		}
+	}
+
+	return nil
+}
+
 func (m *Manager) executeJob(job *Job) {
 	// セマフォで並列実行数を制限
 	m.semaphore <- struct{}{}
 	defer func() { <-m.semaphore }()
+
+	// キャンセル可能なコンテキストを作成
+	jobCtx, cancel := context.WithCancel(m.ctx)
+	job.mu.Lock()
+	job.cancel = cancel
+	job.mu.Unlock()
 
 	m.updateJobStatus(job, StatusRunning, 10, "Starting analysis...")
 
@@ -121,13 +245,18 @@ func (m *Manager) executeJob(job *Job) {
 	fmt.Printf("[DEBUG] Manager storageDir: %s\n", m.storageDir)
 	fmt.Printf("[DEBUG] JobDir: %s\n", jobDir)
 
-	// Python CLIコマンドを構築
-	cmd := exec.Command(m.pythonPath, "-m", "dsa_cli", "run",
+	// Python CLIコマンドを構築（キャンセル可能なコンテキストを使用）
+	cmd := exec.CommandContext(jobCtx, m.pythonPath, "-m", "dsa_cli", "run",
 		"--uniprot", job.UniProtID,
 		"--out", jobDir,
 		"--sequence-ratio", fmt.Sprintf("%v", job.Params["sequence_ratio"]),
 		"--min-structures", fmt.Sprintf("%v", job.Params["min_structures"]),
 	)
+	
+	// ジョブにコマンドを保存（キャンセル時に使用）
+	job.mu.Lock()
+	job.cmd = cmd
+	job.mu.Unlock()
 
 	if xrayOnly, ok := job.Params["xray_only"].(bool); ok && xrayOnly {
 		cmd.Args = append(cmd.Args, "--xray-only")
@@ -227,8 +356,13 @@ func (m *Manager) executeJob(job *Job) {
 
 	m.updateJobStatus(job, StatusRunning, 20, "Running Python analysis...")
 
-	// コマンド実行
+	// コマンド実行（キャンセルされた場合はcontext.Canceledエラーが返る）
 	if err := cmd.Run(); err != nil {
+		// キャンセルされた場合は特別に処理
+		if jobCtx.Err() == context.Canceled {
+			m.updateJobStatus(job, StatusFailed, 0, "Analysis cancelled by user")
+			return
+		}
 		fmt.Printf("[DEBUG] Command execution failed: %v\n", err)
 		// もし result.json が生成されていれば、その中のエラー内容を優先してユーザーに伝える
 		jobDir := filepath.Join(m.storageDir, job.ID)
@@ -292,7 +426,138 @@ func (m *Manager) executeJob(job *Job) {
 		ScatterURL: fmt.Sprintf("/api/jobs/%s/dist_score.png", job.ID),
 	}
 
+	// メトリクスを抽出
+	metrics := m.extractMetrics(result)
+
+	// R2にアップロード（オプショナル）
+	var r2Prefix, resultKey, heatmapKey, scatterKey, logsKey string
+	if m.r2 != nil {
+		if err := m.uploadToR2(job, jobDir, result); err != nil {
+			fmt.Printf("[WARN] Failed to upload to R2: %v\n", err)
+			// R2エラーは無視して続行
+		} else {
+			// アップロード成功時のみキーを設定
+			r2Prefix = fmt.Sprintf("analysis/%s", job.ID)
+			resultKey = fmt.Sprintf("%s/result.json", r2Prefix)
+			heatmapKey = fmt.Sprintf("%s/heatmap.png", r2Prefix)
+			scatterKey = fmt.Sprintf("%s/dist_score.png", r2Prefix)
+			// logs.txtは存在する場合のみ
+			logsPath := filepath.Join(jobDir, "logs.txt")
+			if _, err := os.Stat(logsPath); err == nil {
+				logsKey = fmt.Sprintf("%s/logs.txt", r2Prefix)
+			}
+		}
+	}
+
+	// DBを更新（オプショナル、R2の成否に関わらず実行）
+	if m.db != nil {
+		if err := m.db.CompleteAnalysis(job.ID, metrics, r2Prefix, resultKey, heatmapKey, scatterKey, logsKey); err != nil {
+			fmt.Printf("[WARN] Failed to update analysis in DB: %v\n", err)
+			// DBエラーは無視して続行（既存の動作を維持）
+		}
+	}
+
 	m.updateJobStatus(job, StatusDone, 100, "Analysis completed successfully")
+}
+
+func (m *Manager) uploadToR2(job *Job, jobDir string, result map[string]interface{}) error {
+	r2Prefix := fmt.Sprintf("analysis/%s", job.ID)
+
+	// result.jsonをアップロード
+	resultPath := filepath.Join(jobDir, "result.json")
+	resultData, err := os.ReadFile(resultPath)
+	if err != nil {
+		return fmt.Errorf("failed to read result.json: %w", err)
+	}
+	resultKey := fmt.Sprintf("%s/result.json", r2Prefix)
+	if err := m.r2.PutObject(m.ctx, resultKey, resultData, "application/json"); err != nil {
+		return fmt.Errorf("failed to upload result.json: %w", err)
+	}
+
+	// heatmap.pngをアップロード
+	heatmapPath := filepath.Join(jobDir, "heatmap.png")
+	heatmapKey := fmt.Sprintf("%s/heatmap.png", r2Prefix)
+	if data, err := os.ReadFile(heatmapPath); err == nil {
+		if err := m.r2.PutObject(m.ctx, heatmapKey, data, "image/png"); err != nil {
+			return fmt.Errorf("failed to upload heatmap.png: %w", err)
+		}
+	}
+
+	// dist_score.pngをアップロード
+	scatterPath := filepath.Join(jobDir, "dist_score.png")
+	scatterKey := fmt.Sprintf("%s/dist_score.png", r2Prefix)
+	if data, err := os.ReadFile(scatterPath); err == nil {
+		if err := m.r2.PutObject(m.ctx, scatterKey, data, "image/png"); err != nil {
+			return fmt.Errorf("failed to upload dist_score.png: %w", err)
+		}
+	}
+
+	// logs.txtをアップロード（存在する場合）
+	logsPath := filepath.Join(jobDir, "logs.txt")
+	logsKey := fmt.Sprintf("%s/logs.txt", r2Prefix)
+	if data, err := os.ReadFile(logsPath); err == nil {
+		if err := m.r2.PutObject(m.ctx, logsKey, data, "text/plain"); err != nil {
+			return fmt.Errorf("failed to upload logs.txt: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// ExtractMetrics extracts metrics from a result map (public method for API use)
+func (m *Manager) ExtractMetrics(result map[string]interface{}) map[string]interface{} {
+	return m.extractMetrics(result)
+}
+
+func (m *Manager) extractMetrics(result map[string]interface{}) map[string]interface{} {
+	metrics := make(map[string]interface{})
+
+	// statisticsから抽出
+	if stats, ok := result["statistics"].(map[string]interface{}); ok {
+		if entries, ok := stats["entries"].(float64); ok {
+			metrics["entries"] = int(entries)
+		}
+		if chains, ok := stats["chains"].(float64); ok {
+			metrics["chains"] = int(chains)
+		}
+		if length, ok := stats["length"].(float64); ok {
+			metrics["length"] = int(length)
+		}
+		if lengthPercent, ok := stats["length_percent"].(float64); ok {
+			metrics["length_percent"] = lengthPercent
+		}
+		if resolution, ok := stats["resolution"].(float64); ok {
+			metrics["resolution"] = resolution
+		}
+		if umf, ok := stats["umf"].(float64); ok {
+			metrics["umf"] = umf
+		}
+
+		// cis_analysisから抽出
+		if cisAnalysis, ok := stats["cis_analysis"].(map[string]interface{}); ok {
+			if cisNum, ok := cisAnalysis["cis_num"].(float64); ok {
+				metrics["cis_num"] = int(cisNum)
+			}
+			if cisDistMean, ok := cisAnalysis["cis_dist_mean"].(float64); ok {
+				metrics["cis_dist_mean"] = cisDistMean
+			}
+			if cisDistStd, ok := cisAnalysis["cis_dist_std"].(float64); ok {
+				metrics["cis_dist_std"] = cisDistStd
+			}
+		}
+	}
+
+	// score_summaryから抽出
+	if scoreSummary, ok := result["score_summary"].(map[string]interface{}); ok {
+		if meanScore, ok := scoreSummary["mean_score"].(float64); ok {
+			metrics["mean_score"] = meanScore
+		}
+		if meanStd, ok := scoreSummary["mean_std"].(float64); ok {
+			metrics["mean_std"] = meanStd
+		}
+	}
+
+	return metrics
 }
 
 func (m *Manager) updateJobStatus(job *Job, status JobStatus, progress int, message string) {
@@ -309,6 +574,24 @@ func (m *Manager) updateJobStatus(job *Job, status JobStatus, progress int, mess
 	}
 
 	m.saveStatus(job)
+
+	// DBを更新（オプショナル）
+	if m.db != nil {
+		progressPtr := &progress
+		var startedAt *time.Time
+		if status == StatusRunning && job.Progress > 0 {
+			now := time.Now()
+			startedAt = &now
+		}
+		if err := m.db.UpdateAnalysisStatus(job.ID, string(status), progressPtr, message, startedAt); err != nil {
+			fmt.Printf("[WARN] Failed to update analysis status in DB: %v\n", err)
+		}
+		if status == StatusFailed {
+			if err := m.db.FailAnalysis(job.ID, message); err != nil {
+				fmt.Printf("[WARN] Failed to fail analysis in DB: %v\n", err)
+			}
+		}
+	}
 }
 
 func (m *Manager) saveStatus(job *Job) error {

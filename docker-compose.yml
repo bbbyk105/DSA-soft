@@ -1,6 +1,17 @@
-version: "3.8"
-
 services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: dsa
+      POSTGRES_USER: dsa_user
+      POSTGRES_PASSWORD: dsa_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - dsa-network
+
   backend:
     build:
       context: ./backend
@@ -11,12 +22,22 @@ services:
       - PORT=8080
       - STORAGE_DIR=/app/storage
       - PYTHON_PATH=python3
+      - PYTHON_DIR=/app/python
       - MAX_CONCURRENT=2
+      # .envファイルから読み込む環境変数
+      - DATABASE_URL=${DATABASE_URL}
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET=${R2_BUCKET}
+      - R2_ENDPOINT=${R2_ENDPOINT}
+      - R2_PUBLIC_BASE_URL=${R2_PUBLIC_BASE_URL}
     volumes:
       - ./backend/storage:/app/storage
       - ./python:/app/python
     depends_on:
       - python-base
+      - postgres
     networks:
       - dsa-network
 
@@ -45,6 +66,7 @@ services:
 
 volumes:
   python-cache:
+  postgres-data:
 
 networks:
   dsa-network:

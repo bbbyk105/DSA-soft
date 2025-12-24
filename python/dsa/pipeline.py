@@ -6,9 +6,20 @@ import sys
 import pandas as pd
 import numpy as np
 from itertools import combinations
-from numba import jit
 from decimal import Decimal, ROUND_HALF_UP
 from .fetch import UniprotData, CifData, convert_three, downloadpdb
+
+# numbaを条件付きインポート（オプショナル）
+try:
+    from numba import jit
+    NUMBA_AVAILABLE = True
+except ImportError:
+    # numbaが利用できない場合は、デコレータとして何もしない関数を定義
+    def jit(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    NUMBA_AVAILABLE = False
 
 
 def trim_sequence(sequencedata, seq_ratio=80):

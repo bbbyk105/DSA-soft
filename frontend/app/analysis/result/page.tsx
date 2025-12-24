@@ -117,7 +117,7 @@ function ResultContent() {
   return (
     <div className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <Link
             href="/analysis"
             className="inline-flex items-center text-blue-600 hover:underline"
@@ -125,6 +125,24 @@ function ResultContent() {
             <span className="mr-1">←</span>
             Home に戻る
           </Link>
+          {jobId && (
+            <button
+              onClick={() => {
+                const currentIds =
+                  new URLSearchParams(window.location.search).get("ids") || "";
+                const ids = currentIds
+                  ? currentIds.split(",").filter(Boolean)
+                  : [];
+                if (!ids.includes(jobId)) {
+                  ids.push(jobId);
+                }
+                window.location.href = `/analysis/compare?ids=${ids.join(",")}`;
+              }}
+              className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700"
+            >
+              Compareに追加 / Add to Compare
+            </button>
+          )}
         </div>
         <h1 className="text-3xl font-bold mb-2">
           DSA 解析結果 - {stats.uniprot_id || result.uniprot_id}
@@ -422,7 +440,6 @@ function ResultContent() {
                   <div className="w-full">
                     <MolstarViewer
                       pdbId={selectedPdbId}
-                      pdbUrl={`https://files.rcsb.org/download/${selectedPdbId}.cif`}
                       className="w-full"
                     />
                   </div>

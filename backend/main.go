@@ -3,15 +3,20 @@ package main
 import (
 	"dsa-api/api"
 	"dsa-api/jobs"
+	"dsa-api/storage"
 	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// .envファイルを読み込む（エラーは無視）
+	godotenv.Load()
+	
 	// 環境変数から設定を取得
 	storageDir := os.Getenv("STORAGE_DIR")
 	if storageDir == "" {
@@ -63,11 +68,49 @@ func main() {
 		log.Fatalf("Failed to create storage directory: %v", err)
 	}
 
+	// DBとR2クライアントの初期化（オプショナル）
+	var db *storage.DB
+	var r2 *storage.R2Client
+
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL != "" {
+		var err error
+		db, err = storage.NewDB(databaseURL)
+		if err != nil {
+			log.Fatalf("Failed to connect to database: %v", err)
+		}
+		defer db.Close()
+		log.Printf("Connected to database")
+	}
+
+	r2AccountID := os.Getenv("R2_ACCOUNT_ID")
+	r2AccessKeyID := os.Getenv("R2_ACCESS_KEY_ID")
+	r2SecretAccessKey := os.Getenv("R2_SECRET_ACCESS_KEY")
+	r2Bucket := os.Getenv("R2_BUCKET")
+	r2Endpoint := os.Getenv("R2_ENDPOINT")
+	r2PublicBase := os.Getenv("R2_PUBLIC_BASE_URL")
+
+	if r2AccountID != "" && r2AccessKeyID != "" && r2SecretAccessKey != "" && r2Bucket != "" && r2Endpoint != "" {
+		var err error
+		r2, err = storage.NewR2Client(r2AccountID, r2AccessKeyID, r2SecretAccessKey, r2Bucket, r2Endpoint, r2PublicBase)
+		if err != nil {
+			log.Fatalf("Failed to create R2 client: %v", err)
+		}
+		log.Printf("R2 client initialized")
+	}
+
 	// ジョブマネージャーの作成
-	jobManager := jobs.NewManager(storageDir, pythonPath, maxConcurrent)
+	var jobManager *jobs.Manager
+	if db != nil && r2 != nil {
+		jobManager = jobs.NewManagerWithPersistence(storageDir, pythonPath, maxConcurrent, db, r2)
+		log.Printf("Job manager created with persistence (DB + R2)")
+	} else {
+		jobManager = jobs.NewManager(storageDir, pythonPath, maxConcurrent)
+		log.Printf("Job manager created without persistence")
+	}
 
 	// ルーティングの設定
-	routes := api.NewRoutes(jobManager)
+	routes := api.NewRoutes(jobManager, db, r2)
 
 	// Fiberアプリの作成
 	app := fiber.New(fiber.Config{
@@ -85,7 +128,7 @@ func main() {
 	// CORS設定
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
-		AllowMethods: "GET,POST,OPTIONS",
+		AllowMethods: "GET,POST,DELETE,OPTIONS",
 		AllowHeaders: "Content-Type",
 	}))
 

@@ -2,7 +2,14 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { getJob, getResultUrl, type Job } from "@/lib/api";
+import dynamic from "next/dynamic";
+
+// Mol* Viewerを動的インポート（SSRを無効化）
+const MolstarViewer = dynamic(() => import("@/components/MolstarViewer"), {
+  ssr: false,
+});
 
 function ResultContent() {
   const searchParams = useSearchParams();
@@ -10,6 +17,8 @@ function ResultContent() {
   const [job, setJob] = useState<Job | null>(null);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pdbList, setPdbList] = useState<string[]>([]);
+  const [selectedPdbId, setSelectedPdbId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!jobId) {
@@ -34,6 +43,17 @@ function ResultContent() {
               if (cleanedText) {
                 const resultData = JSON.parse(cleanedText);
                 setResult(resultData);
+
+                // 結果JSON中のstatistics.pdb_idsからPDBリストを取得
+                const stats = (resultData.statistics || {}) as {
+                  pdb_ids?: string[];
+                };
+                const pdbIds = stats.pdb_ids || [];
+                setPdbList(pdbIds);
+                // 最初のPDB IDを選択
+                if (pdbIds.length > 0) {
+                  setSelectedPdbId(pdbIds[0]);
+                }
               } else {
                 setError("Result file is empty");
               }
@@ -97,6 +117,15 @@ function ResultContent() {
   return (
     <div className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-6xl mx-auto">
+        <div className="mb-4">
+          <Link
+            href="/analysis"
+            className="inline-flex items-center text-blue-600 hover:underline"
+          >
+            <span className="mr-1">←</span>
+            Home に戻る
+          </Link>
+        </div>
         <h1 className="text-3xl font-bold mb-2">
           DSA 解析結果 - {stats.uniprot_id || result.uniprot_id}
         </h1>
@@ -361,6 +390,46 @@ function ResultContent() {
               )}
             </div>
           </div>
+
+          {/* 3D Structure Viewer */}
+          {pdbList.length > 0 && (
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="p-6">
+                <h2 className="text-2xl font-bold mb-4">
+                  3D Structure Viewer (Mol*)
+                </h2>
+                <div className="mb-4">
+                  <label
+                    htmlFor="pdb-select"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
+                    PDB構造を選択
+                  </label>
+                  <select
+                    id="pdb-select"
+                    value={selectedPdbId || ""}
+                    onChange={(e) => setSelectedPdbId(e.target.value)}
+                    className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {pdbList.map((pdbId) => (
+                      <option key={pdbId} value={pdbId}>
+                        {pdbId}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {selectedPdbId && jobId && (
+                  <div className="w-full">
+                    <MolstarViewer
+                      pdbId={selectedPdbId}
+                      pdbUrl={`https://files.rcsb.org/download/${selectedPdbId}.cif`}
+                      className="w-full"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -230,6 +230,21 @@ func (m *Manager) executeJob(job *Job) {
 	// コマンド実行
 	if err := cmd.Run(); err != nil {
 		fmt.Printf("[DEBUG] Command execution failed: %v\n", err)
+		// もし result.json が生成されていれば、その中のエラー内容を優先してユーザーに伝える
+		jobDir := filepath.Join(m.storageDir, job.ID)
+		resultPath := filepath.Join(jobDir, "result.json")
+
+		if data, readErr := os.ReadFile(resultPath); readErr == nil {
+			var res map[string]interface{}
+			if jsonErr := json.Unmarshal(data, &res); jsonErr == nil {
+				if msg, ok := res["error"].(string); ok && msg != "" {
+					m.updateJobStatus(job, StatusFailed, 0, msg)
+					return
+				}
+			}
+		}
+
+		// result.json が無い / パースできない場合は従来通りのメッセージ
 		m.updateJobStatus(job, StatusFailed, 0, fmt.Sprintf("Analysis failed: %v", err))
 		return
 	}

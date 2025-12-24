@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createJob, type JobParams } from "@/lib/api";
-import { getAnalysis } from "@/app/lib/api/analyses";
+import { getAnalysis, listAnalyses, type AnalysisSummary } from "@/app/lib/api/analyses";
 
 function AnalysisContent() {
   const router = useRouter();
@@ -22,6 +22,8 @@ function AnalysisContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingPrefill, setLoadingPrefill] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [runningAnalyses, setRunningAnalyses] = useState<AnalysisSummary[]>([]);
+  const [loadingAnalyses, setLoadingAnalyses] = useState(false);
 
   // Prefill機能: URLパラメータから分析IDを取得してフォームを初期化
   useEffect(() => {
@@ -58,6 +60,47 @@ function AnalysisContent() {
     }
   }, [searchParams, loadingPrefill]);
 
+  // 進行中の解析を取得
+  const fetchRunningAnalyses = useCallback(async () => {
+    setLoadingAnalyses(true);
+    try {
+      const data = await listAnalyses({ limit: 50 });
+      const running = data.filter(
+        (a) => a.status === "queued" || a.status === "running"
+      );
+      setRunningAnalyses(running);
+    } catch (err) {
+      console.error("Failed to fetch running analyses:", err);
+    } finally {
+      setLoadingAnalyses(false);
+    }
+  }, []);
+
+  // 初回読み込み時とジョブ作成後に実行中の解析を取得
+  useEffect(() => {
+    fetchRunningAnalyses();
+  }, [fetchRunningAnalyses]);
+
+  // 進行中のジョブのIDリストをメモ化
+  const runningJobIds = useMemo(
+    () =>
+      runningAnalyses
+        .filter((a) => a.status === "queued" || a.status === "running")
+        .map((a) => a.id)
+        .join(","),
+    [runningAnalyses]
+  );
+
+  // 進行中のジョブをポーリング
+  useEffect(() => {
+    if (!runningJobIds) return;
+
+    const interval = setInterval(() => {
+      fetchRunningAnalyses();
+    }, 2000); // 2秒ごとに更新
+
+    return () => clearInterval(interval);
+  }, [runningJobIds, fetchRunningAnalyses]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,14 +138,12 @@ function AnalysisContent() {
 
       if (createdJobIds.length > 0) {
         setSuccessMessage(
-          `${createdJobIds.length}件の解析ジョブを作成しました。履歴ページで進捗を確認できます。`
+          `${createdJobIds.length}件の解析ジョブを作成しました。`
         );
         // フォームをリセット
         setUniprotId("");
-        // 3秒後に履歴ページにリダイレクト（オプション）
-        setTimeout(() => {
-          router.push("/analysis/history");
-        }, 2000);
+        // 進行中の解析を再取得
+        await fetchRunningAnalyses();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create job");
@@ -297,6 +338,85 @@ function AnalysisContent() {
             {isSubmitting ? "解析を開始中..." : "解析を開始"}
           </button>
         </form>
+
+        {/* 進行中のタスク */}
+        {runningAnalyses.length > 0 && (
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-bold mb-4">進行中の解析</h2>
+            <div className="space-y-4">
+              {runningAnalyses.map((analysis) => (
+                <div
+                  key={analysis.id}
+                  className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium text-lg">
+                        {analysis.uniprot_id}
+                      </span>
+                      <span
+                        className={`px-2 py-1 rounded text-xs ${
+                          analysis.status === "running"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {analysis.status === "running" ? "実行中" : "待機中"}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {analysis.method}
+                      </span>
+                    </div>
+                    <Link
+                      href={`/analysis/result?job_id=${analysis.id}`}
+                      className="text-blue-600 hover:underline text-sm"
+                    >
+                      詳細を見る →
+                    </Link>
+                  </div>
+                  {(analysis.status === "queued" ||
+                    analysis.status === "running") &&
+                    analysis.progress !== undefined && (
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm text-gray-600">進捗</span>
+                          <span className="text-sm font-medium text-gray-700">
+                            {Math.min(
+                              Math.max(analysis.progress, 0),
+                              100
+                            )}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div
+                            className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${Math.min(
+                                Math.max(analysis.progress, 0),
+                                100
+                              )}%`,
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+                  <div className="mt-2 text-xs text-gray-500">
+                    作成日時:{" "}
+                    {new Date(analysis.created_at).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 pt-4 border-t">
+              <Link
+                href="/analysis/history"
+                className="text-blue-600 hover:underline text-sm"
+              >
+                すべての解析履歴を見る →
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -308,7 +428,7 @@ export default function AnalysisPage() {
       <div className="min-h-screen p-8 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="bg-white p-8 rounded-lg shadow-md">
-            <p>Loading...</p>
+            <p>読み込み中...</p>
           </div>
         </div>
       </div>

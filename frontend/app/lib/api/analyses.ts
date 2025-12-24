@@ -156,28 +156,43 @@ export async function deleteAnalysis(
   console.log("[API] deleteAnalysis called with:", { id, url, API_BASE_URL });
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
+
     const response = await fetch(url, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
       },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     console.log("[API] deleteAnalysis response:", {
       status: response.status,
       statusText: response.statusText,
       ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries()),
     });
 
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
       let errorBody = null;
       try {
-        errorBody = await response.json();
-        errorMessage = errorBody.error || errorMessage;
-        console.error("[API] deleteAnalysis error response:", errorBody);
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          errorBody = await response.json();
+          errorMessage = errorBody.error || errorMessage;
+          console.error("[API] deleteAnalysis error response:", errorBody);
+        } else {
+          const text = await response.text();
+          console.error("[API] deleteAnalysis error response text:", text);
+          if (text) {
+            errorMessage = text;
+          }
+        }
       } catch (parseErr) {
-        // JSON解析に失敗した場合はデフォルトメッセージを使用
         console.error(
           "[API] deleteAnalysis failed to parse error response:",
           parseErr
@@ -185,6 +200,9 @@ export async function deleteAnalysis(
         try {
           const text = await response.text();
           console.error("[API] deleteAnalysis error response text:", text);
+          if (text && text.length < 200) {
+            errorMessage = text;
+          }
         } catch (textErr) {
           console.error(
             "[API] deleteAnalysis failed to read error response:",
@@ -195,22 +213,39 @@ export async function deleteAnalysis(
       throw new Error(errorMessage);
     }
 
-    const result = await response.json();
-    console.log("[API] deleteAnalysis success:", result);
-    return result;
+    // レスポンスが空の場合もあるので、チェックする
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const result = await response.json();
+      console.log("[API] deleteAnalysis success:", result);
+      return result;
+    } else {
+      // JSONレスポンスがない場合でも成功とみなす
+      console.log("[API] deleteAnalysis success (no JSON response)");
+      return {
+        message: "Analysis deleted successfully",
+        analysis_id: id,
+      };
+    }
   } catch (err) {
     console.error("[API] deleteAnalysis exception:", err);
-    if (err instanceof TypeError && err.message.includes("fetch")) {
-      const networkError = new Error(
-        `ネットワークエラー: バックエンドに接続できませんでした (URL: ${url})`
-      );
-      console.error("[API] Network error details:", {
-        url,
-        API_BASE_URL,
-        error: err,
-      });
-      throw networkError;
+
+    if (err instanceof Error) {
+      if (err.name === "AbortError") {
+        throw new Error(
+          "リクエストがタイムアウトしました。しばらく待ってから再度お試しください。"
+        );
+      }
+      if (
+        err.message.includes("fetch") ||
+        err.message.includes("Failed to fetch")
+      ) {
+        throw new Error(
+          `ネットワークエラー: バックエンドに接続できませんでした。\nURL: ${url}\n\nバックエンドが起動しているか確認してください。`
+        );
+      }
     }
+
     throw err;
   }
 }

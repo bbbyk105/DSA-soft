@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   listAnalyses,
   rerunAnalysis,
-  cancelAnalysis,
   deleteAnalysis,
   type AnalysisSummary,
 } from "@/app/lib/api/analyses";
@@ -55,7 +54,7 @@ function HistoryContent() {
       setAnalyses(data);
     } catch (err) {
       console.error("[History] Error fetching analyses:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch analyses");
+      setError(err instanceof Error ? err.message : "解析の取得に失敗しました");
     } finally {
       setLoading(false);
     }
@@ -92,28 +91,7 @@ function HistoryContent() {
       const result = await rerunAnalysis(id);
       router.push(`/analysis/result?job_id=${result.analysis_id}`);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to rerun analysis");
-    }
-  };
-
-  const handleCancel = async (id: string) => {
-    if (!confirm("解析を終了しますか？この操作は取り消せません。")) {
-      return;
-    }
-    try {
-      // 即座にローカル状態を更新
-      setAnalyses((prev) =>
-        prev.map((a) =>
-          a.id === id ? { ...a, status: "cancelled" as const } : a
-        )
-      );
-      await cancelAnalysis(id);
-      // 履歴を再取得して最新状態を反映
-      await fetchAnalyses();
-    } catch (err) {
-      // エラーが発生した場合は元に戻す
-      await fetchAnalyses();
-      alert(err instanceof Error ? err.message : "Failed to cancel analysis");
+      alert(err instanceof Error ? err.message : "再実行に失敗しました");
     }
   };
 
@@ -147,15 +125,11 @@ function HistoryContent() {
       await fetchAnalyses();
 
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to delete analysis";
+        err instanceof Error ? err.message : "解析の削除に失敗しました";
       alert(
         `削除に失敗しました: ${errorMessage}\n\n詳細はブラウザのコンソールを確認してください。`
       );
     }
-  };
-
-  const handleDuplicate = (id: string) => {
-    router.push(`/analysis?prefill=${id}`);
   };
 
   const toggleCompare = (id: string) => {
@@ -205,11 +179,11 @@ function HistoryContent() {
           </Link>
         </div>
 
-        <h1 className="text-3xl font-bold mb-8">解析履歴 / Analysis History</h1>
+        <h1 className="text-3xl font-bold mb-8">解析履歴</h1>
 
         {/* 検索フィルター */}
         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-          <h2 className="text-xl font-bold mb-4">検索 / Search</h2>
+          <h2 className="text-xl font-bold mb-4">検索</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">
@@ -224,35 +198,36 @@ function HistoryContent() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Method</label>
+              <label className="block text-sm font-medium mb-2">手法</label>
               <select
                 value={method}
                 onChange={(e) => setMethod(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md"
               >
-                <option value="">Any</option>
+                <option value="">すべて</option>
                 <option value="X-ray">X-ray</option>
-                <option value="all">All</option>
+                <option value="all">すべて</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Status</label>
+              <label className="block text-sm font-medium mb-2">
+                ステータス
+              </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md"
               >
-                <option value="">Any</option>
-                <option value="queued">Queued</option>
-                <option value="running">Running</option>
-                <option value="done">Done</option>
-                <option value="failed">Failed</option>
+                <option value="">すべて</option>
+                <option value="queued">待機中</option>
+                <option value="running">実行中</option>
+                <option value="done">完了</option>
+                <option value="failed">失敗</option>
+                <option value="cancelled">キャンセル</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">
-                From Date
-              </label>
+              <label className="block text-sm font-medium mb-2">開始日</label>
               <input
                 type="date"
                 value={fromDate}
@@ -261,7 +236,7 @@ function HistoryContent() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">To Date</label>
+              <label className="block text-sm font-medium mb-2">終了日</label>
               <input
                 type="date"
                 value={toDate}
@@ -275,14 +250,12 @@ function HistoryContent() {
         {/* Compare selection */}
         {compareIds.length > 0 && (
           <div className="bg-blue-50 p-4 rounded-lg mb-6 flex items-center justify-between">
-            <span className="text-blue-800">
-              {compareIds.length} 件選択中 / {compareIds.length} selected
-            </span>
+            <span className="text-blue-800">{compareIds.length} 件選択中</span>
             <button
               onClick={goToCompare}
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
             >
-              比較 / Compare
+              比較
             </button>
           </div>
         )}
@@ -297,11 +270,11 @@ function HistoryContent() {
         {/* テーブル */}
         {loading ? (
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <p>Loading...</p>
+            <p>読み込み中...</p>
           </div>
         ) : analyses.length === 0 ? (
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <p>No analyses found.</p>
+            <p>解析が見つかりませんでした。</p>
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -319,25 +292,25 @@ function HistoryContent() {
                       UniProt ID
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">
-                      Method
+                      手法
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">
-                      Status
+                      ステータス
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">
-                      Entries
+                      エントリ数
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">
-                      Length%
+                      長さ%
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">
                       UMF
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">
-                      mean_score
+                      平均スコア
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">
-                      cis_num
+                      cis数
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">
                       操作
@@ -381,7 +354,17 @@ function HistoryContent() {
                                 : "bg-gray-100 text-gray-800"
                             }`}
                           >
-                            {analysis.status}
+                            {analysis.status === "done"
+                              ? "完了"
+                              : analysis.status === "failed"
+                              ? "失敗"
+                              : analysis.status === "cancelled"
+                              ? "キャンセル"
+                              : analysis.status === "running"
+                              ? "実行中"
+                              : analysis.status === "queued"
+                              ? "待機中"
+                              : analysis.status}
                           </span>
                           {(analysis.status === "queued" ||
                             analysis.status === "running") &&
@@ -434,29 +417,14 @@ function HistoryContent() {
                             }
                             className="text-blue-600 hover:underline text-sm"
                           >
-                            Open
+                            開く
                           </button>
-                          <button
-                            onClick={() => handleDuplicate(analysis.id)}
-                            className="text-green-600 hover:underline text-sm"
-                          >
-                            Duplicate
-                          </button>
-                          {(analysis.status === "queued" ||
-                            analysis.status === "running") && (
-                            <button
-                              onClick={() => handleCancel(analysis.id)}
-                              className="text-red-600 hover:underline text-sm font-medium"
-                            >
-                              終了
-                            </button>
-                          )}
                           {analysis.status === "done" && (
                             <button
                               onClick={() => handleRerun(analysis.id)}
                               className="text-purple-600 hover:underline text-sm"
                             >
-                              Rerun
+                              再実行
                             </button>
                           )}
                           <button
@@ -486,7 +454,7 @@ export default function HistoryPage() {
         <div className="min-h-screen p-8 bg-gray-50">
           <div className="max-w-7xl mx-auto">
             <div className="bg-white p-6 rounded-lg shadow-md">
-              <p>Loading...</p>
+              <p>読み込み中...</p>
             </div>
           </div>
         </div>

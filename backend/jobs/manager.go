@@ -148,81 +148,172 @@ func (m *Manager) GetJob(jobID string) (*Job, error) {
 }
 
 func (m *Manager) CancelJob(jobID string) error {
+	fmt.Printf("[DEBUG] CancelJob called for: %s\n", jobID)
+	
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	job, exists := m.jobs[jobID]
 	if !exists {
+		fmt.Printf("[DEBUG] Job not found in memory: %s, trying to load from disk\n", jobID)
 		// ディスクから読み込む
 		var err error
 		job, err = m.loadJob(jobID)
 		if err != nil {
+			fmt.Printf("[ERROR] Failed to load job from disk: %v\n", err)
 			return fmt.Errorf("job not found: %w", err)
 		}
+		// メモリに追加（後でステータス更新するため）
+		m.jobs[jobID] = job
 	}
+
+	fmt.Printf("[DEBUG] Job found: %s, status: %s\n", jobID, job.Status)
 
 	// ジョブが実行中またはキュー待ちの場合のみキャンセル可能
 	if job.Status != StatusQueued && job.Status != StatusRunning {
+		fmt.Printf("[WARN] Job %s is not cancellable (status: %s)\n", jobID, job.Status)
 		return fmt.Errorf("job is not cancellable (status: %s)", job.Status)
 	}
 
 	// キャンセル関数を呼び出し
 	job.mu.Lock()
 	if job.cancel != nil {
+		fmt.Printf("[DEBUG] Calling cancel function for job: %s\n", jobID)
 		job.cancel()
+	} else {
+		fmt.Printf("[WARN] Cancel function is nil for job: %s\n", jobID)
 	}
+	
 	// コマンドプロセスを強制終了
-	if job.cmd != nil && job.cmd.Process != nil {
-		job.cmd.Process.Kill()
+	if job.cmd != nil {
+		if job.cmd.Process != nil {
+			fmt.Printf("[DEBUG] Killing process for job: %s, PID: %d\n", jobID, job.cmd.Process.Pid)
+			if err := job.cmd.Process.Kill(); err != nil {
+				fmt.Printf("[WARN] Failed to kill process: %v\n", err)
+			} else {
+				fmt.Printf("[DEBUG] Process killed successfully for job: %s\n", jobID)
+			}
+		} else {
+			fmt.Printf("[WARN] Process is nil for job: %s\n", jobID)
+		}
+	} else {
+		fmt.Printf("[WARN] Command is nil for job: %s\n", jobID)
+		// プロセスIDをファイルから読み込んで強制終了を試みる
+		jobDir := filepath.Join(m.storageDir, jobID)
+		pidFile := filepath.Join(jobDir, "pid.txt")
+		if pidData, err := os.ReadFile(pidFile); err == nil {
+			var pid int
+			if _, err := fmt.Sscanf(string(pidData), "%d", &pid); err == nil {
+				fmt.Printf("[DEBUG] Found PID file, attempting to kill process: %d\n", pid)
+				if proc, err := os.FindProcess(pid); err == nil {
+					if err := proc.Kill(); err != nil {
+						fmt.Printf("[WARN] Failed to kill process from PID file: %v\n", err)
+					} else {
+						fmt.Printf("[DEBUG] Process killed from PID file: %d\n", pid)
+					}
+				}
+			}
+		}
 	}
 	job.mu.Unlock()
 
 	// ステータスを更新
+	fmt.Printf("[DEBUG] Updating job status to cancelled: %s\n", jobID)
 	m.updateJobStatus(job, StatusCancelled, 0, "Analysis cancelled by user")
 
 	// DBを更新（オプショナル）
 	if m.db != nil {
+		fmt.Printf("[DEBUG] Updating DB status to cancelled: %s\n", jobID)
 		if err := m.db.UpdateAnalysisStatus(jobID, string(StatusCancelled), nil, "Analysis cancelled by user", nil); err != nil {
-			fmt.Printf("[WARN] Failed to update analysis status in DB: %v\n", err)
+			fmt.Printf("[ERROR] Failed to update analysis status in DB: %v\n", err)
+			return fmt.Errorf("failed to update database: %w", err)
 		}
+		fmt.Printf("[DEBUG] DB status updated successfully: %s\n", jobID)
+	} else {
+		fmt.Printf("[DEBUG] DB not configured, skipping DB update\n")
 	}
 
+	fmt.Printf("[DEBUG] CancelJob completed successfully for: %s\n", jobID)
 	return nil
 }
 
 func (m *Manager) DeleteJob(jobID string) error {
+	fmt.Printf("[DEBUG] DeleteJob called for: %s\n", jobID)
+	
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	job, exists := m.jobs[jobID]
 	if exists {
+		fmt.Printf("[DEBUG] Job found in memory: %s, status: %s\n", jobID, job.Status)
 		// 実行中のジョブをキャンセル
 		if job.Status == StatusRunning || job.Status == StatusQueued {
 			job.mu.Lock()
 			if job.cancel != nil {
 				job.cancel()
+				fmt.Printf("[DEBUG] Context cancel function called for job: %s\n", jobID)
 			}
 			if job.cmd != nil && job.cmd.Process != nil {
-				job.cmd.Process.Kill()
+				if err := job.cmd.Process.Kill(); err != nil {
+					fmt.Printf("[WARN] Failed to kill process %d for job %s: %v\n", job.cmd.Process.Pid, jobID, err)
+				} else {
+					fmt.Printf("[DEBUG] Killed process %d for job: %s\n", job.cmd.Process.Pid, jobID)
+				}
+			} else {
+				fmt.Printf("[WARN] Process is nil for job: %s\n", jobID)
 			}
 			job.mu.Unlock()
 		}
 		delete(m.jobs, jobID)
+		fmt.Printf("[DEBUG] Job removed from memory: %s\n", jobID)
+	} else {
+		fmt.Printf("[DEBUG] Job not found in memory: %s (may be on disk only)\n", jobID)
+		// メモリにない場合でも、実行中の可能性があるのでPIDファイルからプロセスを終了
+		jobDir := filepath.Join(m.storageDir, jobID)
+		pidFile := filepath.Join(jobDir, "pid.txt")
+		if pidData, err := os.ReadFile(pidFile); err == nil {
+			var pid int
+			if _, err := fmt.Sscanf(string(pidData), "%d", &pid); err == nil {
+				fmt.Printf("[DEBUG] Found PID file for job %s, attempting to kill process: %d\n", jobID, pid)
+				if proc, err := os.FindProcess(pid); err == nil {
+					if err := proc.Kill(); err != nil {
+						fmt.Printf("[WARN] Failed to kill process %d from PID file for job %s: %v\n", pid, jobID, err)
+					} else {
+						fmt.Printf("[DEBUG] Process killed from PID file: %d for job: %s\n", pid, jobID)
+					}
+				} else {
+					fmt.Printf("[WARN] Failed to find process %d from PID file for job %s: %v\n", pid, jobID, err)
+				}
+			} else {
+				fmt.Printf("[WARN] Failed to parse PID from file %s for job %s: %v\n", pidFile, jobID, err)
+			}
+		} else if !os.IsNotExist(err) {
+			fmt.Printf("[WARN] Failed to read PID file %s for job %s: %v\n", pidFile, jobID, err)
+		}
 	}
 
 	// ストレージディレクトリを削除
 	jobDir := filepath.Join(m.storageDir, jobID)
+	fmt.Printf("[DEBUG] Attempting to delete storage directory: %s\n", jobDir)
 	if err := os.RemoveAll(jobDir); err != nil {
 		fmt.Printf("[WARN] Failed to delete job directory: %v\n", err)
+	} else {
+		fmt.Printf("[DEBUG] Storage directory deleted: %s\n", jobDir)
 	}
 
 	// DBから削除（オプショナル）
 	if m.db != nil {
+		fmt.Printf("[DEBUG] Attempting to delete from DB: %s\n", jobID)
 		if err := m.db.DeleteAnalysis(jobID); err != nil {
-			fmt.Printf("[WARN] Failed to delete analysis from DB: %v\n", err)
+			fmt.Printf("[ERROR] Failed to delete analysis from DB: %v\n", err)
+			return fmt.Errorf("failed to delete from database: %w", err)
 		}
+		fmt.Printf("[DEBUG] Analysis deleted from DB: %s\n", jobID)
+	} else {
+		fmt.Printf("[DEBUG] DB not configured, skipping DB deletion\n")
 	}
 
+	fmt.Printf("[DEBUG] DeleteJob completed successfully for: %s\n", jobID)
 	return nil
 }
 
@@ -356,16 +447,37 @@ func (m *Manager) executeJob(job *Job) {
 
 	m.updateJobStatus(job, StatusRunning, 20, "Running Python analysis...")
 
+	// コマンドを開始してプロセスIDを取得
+	if err := cmd.Start(); err != nil {
+		m.updateJobStatus(job, StatusFailed, 0, fmt.Sprintf("Failed to start command: %v", err))
+		return
+	}
+
+	// プロセスIDをファイルに保存（後で強制終了するため）
+	pidFile := filepath.Join(jobDir, "pid.txt")
+	if cmd.Process != nil {
+		pid := cmd.Process.Pid
+		if err := os.WriteFile(pidFile, []byte(fmt.Sprintf("%d", pid)), 0644); err != nil {
+			fmt.Printf("[WARN] Failed to save PID file: %v\n", err)
+		} else {
+			fmt.Printf("[DEBUG] Saved PID %d to %s\n", pid, pidFile)
+		}
+	}
+
 	// コマンド実行（キャンセルされた場合はcontext.Canceledエラーが返る）
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Wait(); err != nil {
 		// キャンセルされた場合は特別に処理
 		if jobCtx.Err() == context.Canceled {
-			m.updateJobStatus(job, StatusFailed, 0, "Analysis cancelled by user")
+			fmt.Printf("[DEBUG] Job cancelled: %s\n", job.ID)
+			m.updateJobStatus(job, StatusCancelled, 0, "Analysis cancelled by user")
+			// PIDファイルを削除
+			if err := os.Remove(pidFile); err != nil && !os.IsNotExist(err) {
+				fmt.Printf("[WARN] Failed to remove PID file: %v\n", err)
+			}
 			return
 		}
 		fmt.Printf("[DEBUG] Command execution failed: %v\n", err)
 		// もし result.json が生成されていれば、その中のエラー内容を優先してユーザーに伝える
-		jobDir := filepath.Join(m.storageDir, job.ID)
 		resultPath := filepath.Join(jobDir, "result.json")
 
 		if data, readErr := os.ReadFile(resultPath); readErr == nil {
@@ -458,6 +570,12 @@ func (m *Manager) executeJob(job *Job) {
 	}
 
 	m.updateJobStatus(job, StatusDone, 100, "Analysis completed successfully")
+	
+	// PIDファイルを削除
+	pidFile = filepath.Join(jobDir, "pid.txt")
+	if err := os.Remove(pidFile); err != nil && !os.IsNotExist(err) {
+		fmt.Printf("[WARN] Failed to remove PID file: %v\n", err)
+	}
 }
 
 func (m *Manager) uploadToR2(job *Job, jobDir string, result map[string]interface{}) error {

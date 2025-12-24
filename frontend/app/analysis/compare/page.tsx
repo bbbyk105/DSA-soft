@@ -3,7 +3,12 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { compareAnalyses, listAnalyses, type AnalysisSummary } from "@/app/lib/api/analyses";
+import {
+  compareAnalyses,
+  listAnalyses,
+  type AnalysisSummary,
+} from "@/app/lib/api/analyses";
+import { getResultUrl } from "@/lib/api";
 
 function CompareContent() {
   const searchParams = useSearchParams();
@@ -19,14 +24,14 @@ function CompareContent() {
   useEffect(() => {
     const idsParam = searchParams.get("ids");
     if (!idsParam) {
-      setError("No analysis IDs provided");
+      setError("解析IDが指定されていません");
       setLoading(false);
       return;
     }
 
     const ids = idsParam.split(",").filter(Boolean);
     if (ids.length === 0) {
-      setError("No valid analysis IDs");
+      setError("有効な解析IDがありません");
       setLoading(false);
       return;
     }
@@ -44,7 +49,9 @@ function CompareContent() {
       const data = await compareAnalyses(ids);
       setAnalyses(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch comparisons");
+      setError(
+        err instanceof Error ? err.message : "比較データの取得に失敗しました"
+      );
     } finally {
       setLoading(false);
     }
@@ -95,7 +102,12 @@ function CompareContent() {
     }
     const value = metrics[key];
     if (typeof value === "number") {
-      if (key.includes("percent") || key === "mean_score" || key === "mean_std" || key.includes("dist")) {
+      if (
+        key.includes("percent") ||
+        key === "mean_score" ||
+        key === "mean_std" ||
+        key.includes("dist")
+      ) {
         return value.toFixed(2);
       }
       return value.toString();
@@ -107,7 +119,12 @@ function CompareContent() {
     if (!base || !current) return "";
     const baseValue = base[key];
     const currentValue = current[key];
-    if (baseValue === undefined || currentValue === undefined || baseValue === null || currentValue === null) {
+    if (
+      baseValue === undefined ||
+      currentValue === undefined ||
+      baseValue === null ||
+      currentValue === null
+    ) {
       return "";
     }
     if (typeof baseValue === "number" && typeof currentValue === "number") {
@@ -133,21 +150,21 @@ function CompareContent() {
             className="inline-flex items-center text-blue-600 hover:underline"
           >
             <span className="mr-1">←</span>
-            History に戻る
+            履歴に戻る
           </Link>
           <button
             onClick={() => setShowAddModal(true)}
             className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
           >
-            + 解析を追加 / Add Analysis
+            + 解析を追加
           </button>
         </div>
 
-        <h1 className="text-3xl font-bold mb-8">解析比較 / Analysis Compare</h1>
+        <h1 className="text-3xl font-bold mb-8">解析比較</h1>
 
         {analyses.length > 0 && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded">
-            {analyses.length} 件の解析を比較中 / Comparing {analyses.length} analyses
+            {analyses.length} 件の解析を比較中
           </div>
         )}
 
@@ -159,11 +176,11 @@ function CompareContent() {
 
         {loading ? (
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <p>Loading...</p>
+            <p>読み込み中...</p>
           </div>
         ) : analyses.length === 0 ? (
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <p>No analyses to compare.</p>
+            <p>比較する解析がありません。</p>
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -171,13 +188,18 @@ function CompareContent() {
               <table className="w-full">
                 <thead className="bg-gray-100">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium border-r">指標 / Metric</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium border-r">
+                      指標
+                    </th>
                     {analyses.map((analysis) => (
-                      <th key={analysis.id} className="px-4 py-3 text-left text-sm font-medium relative">
+                      <th
+                        key={analysis.id}
+                        className="px-4 py-3 text-left text-sm font-medium relative"
+                      >
                         <button
                           onClick={() => removeAnalysis(analysis.id)}
                           className="absolute top-1 right-1 text-red-600 hover:text-red-800 text-lg font-bold"
-                          title="削除 / Remove"
+                          title="削除"
                         >
                           ×
                         </button>
@@ -185,12 +207,18 @@ function CompareContent() {
                         <div className="text-xs text-gray-500">
                           {new Date(analysis.created_at).toLocaleDateString()}
                         </div>
-                        <div className="text-xs text-gray-500">{analysis.method}</div>
+                        <div className="text-xs text-gray-500">
+                          {analysis.method}
+                        </div>
                         <button
-                          onClick={() => router.push(`/analysis/result?job_id=${analysis.id}`)}
+                          onClick={() =>
+                            router.push(
+                              `/analysis/result?job_id=${analysis.id}`
+                            )
+                          }
                           className="mt-2 text-blue-600 hover:underline text-xs"
                         >
-                          View
+                          表示
                         </button>
                       </th>
                     ))}
@@ -198,39 +226,53 @@ function CompareContent() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   <tr>
-                    <td className="px-4 py-3 font-medium border-r">Entries</td>
+                    <td className="px-4 py-3 font-medium border-r">
+                      エントリ数
+                    </td>
                     {analyses.map((analysis) => (
                       <td key={analysis.id} className="px-4 py-3 text-sm">
                         {formatMetric(analysis.metrics, "entries")}
                         {baseAnalysis && (
                           <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(baseAnalysis.metrics, analysis.metrics, "entries")}
+                            {formatDiff(
+                              baseAnalysis.metrics,
+                              analysis.metrics,
+                              "entries"
+                            )}
                           </span>
                         )}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium border-r">Chains</td>
+                    <td className="px-4 py-3 font-medium border-r">鎖数</td>
                     {analyses.map((analysis) => (
                       <td key={analysis.id} className="px-4 py-3 text-sm">
                         {formatMetric(analysis.metrics, "chains")}
                         {baseAnalysis && (
                           <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(baseAnalysis.metrics, analysis.metrics, "chains")}
+                            {formatDiff(
+                              baseAnalysis.metrics,
+                              analysis.metrics,
+                              "chains"
+                            )}
                           </span>
                         )}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium border-r">Length%</td>
+                    <td className="px-4 py-3 font-medium border-r">長さ%</td>
                     {analyses.map((analysis) => (
                       <td key={analysis.id} className="px-4 py-3 text-sm">
                         {formatMetric(analysis.metrics, "length_percent")}
                         {baseAnalysis && (
                           <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(baseAnalysis.metrics, analysis.metrics, "length_percent")}
+                            {formatDiff(
+                              baseAnalysis.metrics,
+                              analysis.metrics,
+                              "length_percent"
+                            )}
                           </span>
                         )}
                       </td>
@@ -243,92 +285,128 @@ function CompareContent() {
                         {formatMetric(analysis.metrics, "umf")}
                         {baseAnalysis && (
                           <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(baseAnalysis.metrics, analysis.metrics, "umf")}
+                            {formatDiff(
+                              baseAnalysis.metrics,
+                              analysis.metrics,
+                              "umf"
+                            )}
                           </span>
                         )}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium border-r">mean_score</td>
+                    <td className="px-4 py-3 font-medium border-r">
+                      平均スコア
+                    </td>
                     {analyses.map((analysis) => (
                       <td key={analysis.id} className="px-4 py-3 text-sm">
                         {formatMetric(analysis.metrics, "mean_score")}
                         {baseAnalysis && (
                           <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(baseAnalysis.metrics, analysis.metrics, "mean_score")}
+                            {formatDiff(
+                              baseAnalysis.metrics,
+                              analysis.metrics,
+                              "mean_score"
+                            )}
                           </span>
                         )}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium border-r">cis_num</td>
+                    <td className="px-4 py-3 font-medium border-r">cis数</td>
                     {analyses.map((analysis) => (
                       <td key={analysis.id} className="px-4 py-3 text-sm">
                         {formatMetric(analysis.metrics, "cis_num")}
                         {baseAnalysis && (
                           <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(baseAnalysis.metrics, analysis.metrics, "cis_num")}
+                            {formatDiff(
+                              baseAnalysis.metrics,
+                              analysis.metrics,
+                              "cis_num"
+                            )}
                           </span>
                         )}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium border-r">cis_dist_mean</td>
+                    <td className="px-4 py-3 font-medium border-r">
+                      cis距離平均
+                    </td>
                     {analyses.map((analysis) => (
                       <td key={analysis.id} className="px-4 py-3 text-sm">
                         {formatMetric(analysis.metrics, "cis_dist_mean")}
                         {baseAnalysis && (
                           <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(baseAnalysis.metrics, analysis.metrics, "cis_dist_mean")}
+                            {formatDiff(
+                              baseAnalysis.metrics,
+                              analysis.metrics,
+                              "cis_dist_mean"
+                            )}
                           </span>
                         )}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium border-r">Resolution</td>
+                    <td className="px-4 py-3 font-medium border-r">解像度</td>
                     {analyses.map((analysis) => (
                       <td key={analysis.id} className="px-4 py-3 text-sm">
                         {formatMetric(analysis.metrics, "resolution")}
                         {baseAnalysis && (
                           <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(baseAnalysis.metrics, analysis.metrics, "resolution")}
+                            {formatDiff(
+                              baseAnalysis.metrics,
+                              analysis.metrics,
+                              "resolution"
+                            )}
                           </span>
                         )}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium border-r">mean_std</td>
+                    <td className="px-4 py-3 font-medium border-r">
+                      平均標準偏差
+                    </td>
                     {analyses.map((analysis) => (
                       <td key={analysis.id} className="px-4 py-3 text-sm">
                         {formatMetric(analysis.metrics, "mean_std")}
                         {baseAnalysis && (
                           <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(baseAnalysis.metrics, analysis.metrics, "mean_std")}
+                            {formatDiff(
+                              baseAnalysis.metrics,
+                              analysis.metrics,
+                              "mean_std"
+                            )}
                           </span>
                         )}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium border-r">cis_dist_std</td>
+                    <td className="px-4 py-3 font-medium border-r">
+                      cis距離標準偏差
+                    </td>
                     {analyses.map((analysis) => (
                       <td key={analysis.id} className="px-4 py-3 text-sm">
                         {formatMetric(analysis.metrics, "cis_dist_std")}
                         {baseAnalysis && (
                           <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(baseAnalysis.metrics, analysis.metrics, "cis_dist_std")}
+                            {formatDiff(
+                              baseAnalysis.metrics,
+                              analysis.metrics,
+                              "cis_dist_std"
+                            )}
                           </span>
                         )}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium border-r">Created At</td>
+                    <td className="px-4 py-3 font-medium border-r">作成日時</td>
                     {analyses.map((analysis) => (
                       <td key={analysis.id} className="px-4 py-3 text-sm">
                         {new Date(analysis.created_at).toLocaleString()}
@@ -336,7 +414,7 @@ function CompareContent() {
                     ))}
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium border-r">Method</td>
+                    <td className="px-4 py-3 font-medium border-r">手法</td>
                     {analyses.map((analysis) => (
                       <td key={analysis.id} className="px-4 py-3 text-sm">
                         {analysis.method}
@@ -349,12 +427,98 @@ function CompareContent() {
           </div>
         )}
 
+        {/* ヒートマップ比較 */}
+        {!loading && analyses.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden mt-8">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-6">ヒートマップ比較</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {analyses.map((analysis) => (
+                  <div
+                    key={analysis.id}
+                    className="border border-gray-200 rounded-lg p-4"
+                  >
+                    <div className="mb-2">
+                      <h3 className="font-bold text-lg">
+                        {analysis.uniprot_id}
+                      </h3>
+                      <p className="text-xs text-gray-500">{analysis.method}</p>
+                    </div>
+                    <div className="flex justify-center">
+                      <img
+                        src={getResultUrl(analysis.id, "heatmap.png")}
+                        alt={`Heatmap for ${analysis.uniprot_id}`}
+                        className="w-full h-auto rounded-lg shadow-md"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                          const parent = target.parentElement;
+                          if (parent) {
+                            const errorMsg = document.createElement("p");
+                            errorMsg.className = "text-red-500 text-sm";
+                            errorMsg.textContent = "画像を読み込めませんでした";
+                            parent.appendChild(errorMsg);
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Distance-Score Plot 比較 */}
+        {!loading && analyses.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden mt-8">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-6">
+                Distance-Score Plot 比較
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {analyses.map((analysis) => (
+                  <div
+                    key={analysis.id}
+                    className="border border-gray-200 rounded-lg p-4"
+                  >
+                    <div className="mb-2">
+                      <h3 className="font-bold text-lg">
+                        {analysis.uniprot_id}
+                      </h3>
+                      <p className="text-xs text-gray-500">{analysis.method}</p>
+                    </div>
+                    <div className="flex justify-center">
+                      <img
+                        src={getResultUrl(analysis.id, "dist_score.png")}
+                        alt={`Distance-Score Plot for ${analysis.uniprot_id}`}
+                        className="w-full h-auto rounded-lg shadow-md"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                          const parent = target.parentElement;
+                          if (parent) {
+                            const errorMsg = document.createElement("p");
+                            errorMsg.className = "text-red-500 text-sm";
+                            errorMsg.textContent = "画像を読み込めませんでした";
+                            parent.appendChild(errorMsg);
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Add Analysis Modal */}
         {showAddModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
               <div className="p-6 border-b flex items-center justify-between">
-                <h2 className="text-2xl font-bold">解析を追加 / Add Analysis</h2>
+                <h2 className="text-2xl font-bold">解析を追加</h2>
                 <button
                   onClick={() => {
                     setShowAddModal(false);
@@ -382,13 +546,17 @@ function CompareContent() {
                           className="mr-3"
                         />
                         <div className="flex-1">
-                          <div className="font-medium">{analysis.uniprot_id}</div>
+                          <div className="font-medium">
+                            {analysis.uniprot_id}
+                          </div>
                           <div className="text-sm text-gray-500">
-                            {new Date(analysis.created_at).toLocaleString()} - {analysis.method}
+                            {new Date(analysis.created_at).toLocaleString()} -{" "}
+                            {analysis.method}
                           </div>
                           <div className="text-xs text-gray-400">
-                            Entries: {formatMetric(analysis.metrics, "entries")} | 
-                            Length%: {formatMetric(analysis.metrics, "length_percent")} | 
+                            エントリ数:{" "}
+                            {formatMetric(analysis.metrics, "entries")} | 長さ%:{" "}
+                            {formatMetric(analysis.metrics, "length_percent")} |
                             UMF: {formatMetric(analysis.metrics, "umf")}
                           </div>
                         </div>
@@ -399,7 +567,7 @@ function CompareContent() {
               </div>
               <div className="p-6 border-t flex justify-between items-center">
                 <div className="text-sm text-gray-600">
-                  {modalSelectedIds.length} 件選択中 / {modalSelectedIds.length} selected
+                  {modalSelectedIds.length} 件選択中
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -409,14 +577,14 @@ function CompareContent() {
                     }}
                     className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
                   >
-                    キャンセル / Cancel
+                    キャンセル
                   </button>
                   <button
                     onClick={addAnalyses}
                     disabled={modalSelectedIds.length === 0}
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    追加 / Add ({modalSelectedIds.length})
+                    追加 ({modalSelectedIds.length})
                   </button>
                 </div>
               </div>
@@ -430,17 +598,18 @@ function CompareContent() {
 
 export default function ComparePage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen p-8 bg-gray-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <p>Loading...</p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen p-8 bg-gray-50">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-white p-6 rounded-lg shadow-md">
+              <p>読み込み中...</p>
+            </div>
           </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <CompareContent />
     </Suspense>
   );
 }
-

@@ -115,6 +115,12 @@ func (m *Manager) CreateJob(uniprotID string, params map[string]interface{}) (*J
 		if xrayOnly, ok := params["xray_only"].(bool); ok && xrayOnly {
 			method = "X-ray"
 		}
+		// セッションIDを取得
+		sessionID := ""
+		if sid, ok := params["session_id"].(string); ok {
+			sessionID = sid
+		}
+
 		record := &storage.AnalysisRecord{
 			ID:        jobID,
 			UniProtID: uniprotID,
@@ -122,6 +128,7 @@ func (m *Manager) CreateJob(uniprotID string, params map[string]interface{}) (*J
 			Status:    "queued",
 			Params:    params,
 			CreatedAt: job.CreatedAt,
+			SessionID: sessionID,
 		}
 		if err := m.db.CreateAnalysis(record); err != nil {
 			fmt.Printf("[WARN] Failed to create analysis in DB: %v\n", err)

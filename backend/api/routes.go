@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type Routes struct {
@@ -110,6 +111,26 @@ func (r *Routes) createJob(c *fiber.Ctx) error {
 	if _, ok := params["proc_cis"]; !ok {
 		params["proc_cis"] = true
 	}
+
+	// Cookie同意をチェック（オプショナル - 厳密にチェックしない）
+	// CookieからセッションIDを取得、なければ生成
+	sessionID := c.Cookies("dsa_session_id")
+	if sessionID == "" {
+		sessionID = uuid.New().String()
+		// セッションIDをCookieに設定
+		c.Cookie(&fiber.Cookie{
+			Name:     "dsa_session_id",
+			Value:    sessionID,
+			Expires:  time.Now().Add(30 * 24 * time.Hour), // 30日間
+			HTTPOnly: true,  // XSS対策
+			SameSite: "Lax", // CSRF対策
+			Secure:   false, // HTTPSの場合はtrueに
+			Path:     "/",
+		})
+	}
+
+	// パラメータにセッションIDを追加
+	params["session_id"] = sessionID
 
 	job, err := r.jobManager.CreateJob(req.UniProtID, params)
 	if err != nil {
@@ -476,12 +497,17 @@ func (r *Routes) jobToAnalysisResponse(job *jobs.Job) fiber.Map {
 
 func (r *Routes) listAnalyses(c *fiber.Ctx) error {
 	if r.db == nil {
-		return c.Status(503).JSON(fiber.Map{
-			"error": "Database not configured",
-		})
+		// データベースが設定されていない場合は空配列を返す（後方互換性のため）
+		return c.JSON([]fiber.Map{})
 	}
 
 	filters := make(map[string]interface{})
+
+	// CookieからセッションIDを取得してフィルタに追加
+	sessionID := c.Cookies("dsa_session_id")
+	if sessionID != "" {
+		filters["session_id"] = sessionID
+	}
 
 	if uniprotID := c.Query("uniprot_id"); uniprotID != "" {
 		filters["uniprot_id"] = uniprotID

@@ -132,6 +132,23 @@ func (m *Manager) CreateJob(uniprotID string, params map[string]interface{}) (*J
 		if err := m.db.CreateAnalysis(record); err != nil {
 			fmt.Printf("[WARN] Failed to create analysis in DB: %v\n", err)
 			// DBエラーは無視して続行（既存の動作を維持）
+		} else {
+			// ジョブ数が50個以上の場合、最も古いジョブを1つ削除
+			count, err := m.db.CountAnalyses()
+			if err == nil && count > 50 {
+				oldest, err := m.db.GetOldestAnalysis()
+				if err == nil && oldest != nil {
+					fmt.Printf("[INFO] Job count (%d) exceeds limit (50), deleting oldest job: %s\n", count, oldest.ID)
+					// 非同期で削除（ジョブ作成をブロックしない）
+					go func() {
+						if err := m.DeleteJob(oldest.ID); err != nil {
+							fmt.Printf("[WARN] Failed to delete oldest job %s: %v\n", oldest.ID, err)
+						} else {
+							fmt.Printf("[INFO] Successfully deleted oldest job: %s\n", oldest.ID)
+						}
+					}()
+				}
+			}
 		}
 	}
 

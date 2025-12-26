@@ -101,9 +101,15 @@ func main() {
 
 	// ジョブマネージャーの作成
 	var jobManager *jobs.Manager
-	if db != nil && r2 != nil {
-		jobManager = jobs.NewManagerWithPersistence(storageDir, pythonPath, maxConcurrent, db, r2)
-		log.Printf("Job manager created with persistence (DB + R2)")
+	if db != nil {
+		if r2 != nil {
+			jobManager = jobs.NewManagerWithPersistence(storageDir, pythonPath, maxConcurrent, db, r2)
+			log.Printf("Job manager created with persistence (DB + R2)")
+		} else {
+			// DBだけでも保存できるようにする
+			jobManager = jobs.NewManagerWithPersistence(storageDir, pythonPath, maxConcurrent, db, nil)
+			log.Printf("Job manager created with persistence (DB only)")
+		}
 	} else {
 		jobManager = jobs.NewManager(storageDir, pythonPath, maxConcurrent)
 		log.Printf("Job manager created without persistence")

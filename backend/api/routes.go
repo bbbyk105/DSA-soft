@@ -47,10 +47,10 @@ func (r *Routes) SetupRoutes(app *fiber.App) {
 	// ジョブ状態取得
 	api.Get("/jobs/:id", r.getJob)
 
-	// 結果ファイル取得
-	api.Get("/jobs/:id/result.json", r.getResultJSON)
-	api.Get("/jobs/:id/heatmap.png", r.getHeatmap)
-	api.Get("/jobs/:id/dist_score.png", r.getScatter)
+	// 結果ファイル取得（R2から取得）
+	api.Get("/jobs/:id/result.json", r.getJobResultJSON)
+	api.Get("/jobs/:id/heatmap.png", r.getJobHeatmap)
+	api.Get("/jobs/:id/dist_score.png", r.getJobScatter)
 	
 	// PDBファイル取得
 	api.Get("/jobs/:id/pdb/:pdbid", r.getPDBFile)
@@ -157,16 +157,149 @@ func (r *Routes) getJob(c *fiber.Ctx) error {
 	return c.JSON(job)
 }
 
-func (r *Routes) getResultJSON(c *fiber.Ctx) error {
-	return r.serveFile(c, "result.json", "application/json")
+// 古いJob API用のハンドラー（DBとR2から取得、ローカルファイルへのフォールバック付き）
+func (r *Routes) getJobResultJSON(c *fiber.Ctx) error {
+	id := c.Params("id")
+	
+	// DBからレコードを取得
+	if r.db == nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "Database not configured",
+		})
+	}
+	
+	record, err := r.db.GetAnalysis(id)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "Analysis not found in database",
+		})
+	}
+	
+	// R2から取得を試みる
+	if r.r2 != nil {
+		var resultKey string
+		if record.ResultKey != nil {
+			resultKey = *record.ResultKey
+		} else {
+			// R2キーが保存されていない場合、プレフィックスから推測
+			resultKey = fmt.Sprintf("analysis/%s/result.json", id)
+		}
+		
+		data, err := r.r2.GetObject(r.ctx, resultKey)
+		if err == nil {
+			c.Set("Content-Type", "application/json")
+			return c.Send(data)
+		}
+		fmt.Printf("[WARN] Failed to get result from R2 for %s (key: %s): %v\n", id, resultKey, err)
+	}
+	
+	// R2から取得できない場合、ローカルファイルから取得を試みる（フォールバック）
+	jobDir := filepath.Join(r.storageDir, id)
+	resultPath := filepath.Join(jobDir, "result.json")
+	if data, err := os.ReadFile(resultPath); err == nil {
+		c.Set("Content-Type", "application/json")
+		return c.Send(data)
+	}
+	
+	return c.Status(404).JSON(fiber.Map{
+		"error": "Result file not found in R2 or local storage",
+	})
 }
 
-func (r *Routes) getHeatmap(c *fiber.Ctx) error {
-	return r.serveFile(c, "heatmap.png", "image/png")
+func (r *Routes) getJobHeatmap(c *fiber.Ctx) error {
+	id := c.Params("id")
+	
+	// DBからレコードを取得
+	if r.db == nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "Database not configured",
+		})
+	}
+	
+	record, err := r.db.GetAnalysis(id)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "Analysis not found in database",
+		})
+	}
+	
+	// R2から取得を試みる
+	if r.r2 != nil {
+		var heatmapKey string
+		if record.HeatmapKey != nil {
+			heatmapKey = *record.HeatmapKey
+		} else {
+			// R2キーが保存されていない場合、プレフィックスから推測
+			heatmapKey = fmt.Sprintf("analysis/%s/heatmap.png", id)
+		}
+		
+		data, err := r.r2.GetObject(r.ctx, heatmapKey)
+		if err == nil {
+			c.Set("Content-Type", "image/png")
+			return c.Send(data)
+		}
+		fmt.Printf("[WARN] Failed to get heatmap from R2 for %s (key: %s): %v\n", id, heatmapKey, err)
+	}
+	
+	// R2から取得できない場合、ローカルファイルから取得を試みる（フォールバック）
+	jobDir := filepath.Join(r.storageDir, id)
+	heatmapPath := filepath.Join(jobDir, "heatmap.png")
+	if data, err := os.ReadFile(heatmapPath); err == nil {
+		c.Set("Content-Type", "image/png")
+		return c.Send(data)
+	}
+	
+	return c.Status(404).JSON(fiber.Map{
+		"error": "Heatmap not found in R2 or local storage",
+	})
 }
 
-func (r *Routes) getScatter(c *fiber.Ctx) error {
-	return r.serveFile(c, "dist_score.png", "image/png")
+func (r *Routes) getJobScatter(c *fiber.Ctx) error {
+	id := c.Params("id")
+	
+	// DBからレコードを取得
+	if r.db == nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "Database not configured",
+		})
+	}
+	
+	record, err := r.db.GetAnalysis(id)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "Analysis not found in database",
+		})
+	}
+	
+	// R2から取得を試みる
+	if r.r2 != nil {
+		var scatterKey string
+		if record.ScatterKey != nil {
+			scatterKey = *record.ScatterKey
+		} else {
+			// R2キーが保存されていない場合、プレフィックスから推測
+			scatterKey = fmt.Sprintf("analysis/%s/dist_score.png", id)
+		}
+		
+		data, err := r.r2.GetObject(r.ctx, scatterKey)
+		if err == nil {
+			c.Set("Content-Type", "image/png")
+			return c.Send(data)
+		}
+		fmt.Printf("[WARN] Failed to get scatter plot from R2 for %s (key: %s): %v\n", id, scatterKey, err)
+	}
+	
+	// R2から取得できない場合、ローカルファイルから取得を試みる（フォールバック）
+	jobDir := filepath.Join(r.storageDir, id)
+	scatterPath := filepath.Join(jobDir, "dist_score.png")
+	if data, err := os.ReadFile(scatterPath); err == nil {
+		c.Set("Content-Type", "image/png")
+		return c.Send(data)
+	}
+	
+	return c.Status(404).JSON(fiber.Map{
+		"error": "Scatter plot not found in R2 or local storage",
+	})
 }
 
 func (r *Routes) getPDBFile(c *fiber.Ctx) error {
@@ -219,14 +352,24 @@ func (r *Routes) getPDBList(c *fiber.Ctx) error {
 		})
 	}
 
-	// result.jsonからPDB IDリストを取得
-	storageDir := r.jobManager.GetStorageDir()
-	resultPath := filepath.Join(storageDir, jobID, "result.json")
-	
-	resultData, err := os.ReadFile(resultPath)
-	if err != nil {
-		return c.Status(404).JSON(fiber.Map{
-			"error": "Result file not found",
+	// result.jsonからPDB IDリストを取得（R2から取得）
+	var resultData []byte
+	if r.db != nil && r.r2 != nil {
+		record, err := r.db.GetAnalysis(jobID)
+		if err != nil || record.ResultKey == nil {
+			return c.Status(404).JSON(fiber.Map{
+				"error": "Analysis not found",
+			})
+		}
+		resultData, err = r.r2.GetObject(r.ctx, *record.ResultKey)
+		if err != nil {
+			return c.Status(404).JSON(fiber.Map{
+				"error": "Result file not found in R2",
+			})
+		}
+	} else {
+		return c.Status(503).JSON(fiber.Map{
+			"error": "Database and R2 not configured",
 		})
 	}
 
@@ -265,36 +408,7 @@ func (r *Routes) getPDBList(c *fiber.Ctx) error {
 	})
 }
 
-func (r *Routes) serveFile(c *fiber.Ctx, filename, contentType string) error {
-	jobID := c.Params("id")
-	job, err := r.jobManager.GetJob(jobID)
-	if err != nil {
-		return c.Status(404).JSON(fiber.Map{
-			"error": "Job not found",
-		})
-	}
-
-	if job.Status != jobs.StatusDone {
-		return c.Status(409).JSON(fiber.Map{
-			"error": "File not ready",
-			"status": job.Status,
-		})
-	}
-
-	// ファイルパスを取得
-	storageDir := r.jobManager.GetStorageDir()
-	filePath := filepath.Join(storageDir, jobID, filename)
-
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return c.Status(404).JSON(fiber.Map{
-			"error": "File not found",
-		})
-	}
-
-	c.Set("Content-Type", contentType)
-	c.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", filename))
-	return c.SendFile(filePath)
-}
+// serveFile関数は削除（R2から直接取得するように変更済み）
 
 // Analysis API handlers
 
@@ -326,67 +440,108 @@ func (r *Routes) getAnalysis(c *fiber.Ctx) error {
 
 func (r *Routes) getAnalysisResult(c *fiber.Ctx) error {
 	id := c.Params("id")
-
-	// R2から取得を試みる
-	if r.db != nil && r.r2 != nil {
-		record, err := r.db.GetAnalysis(id)
-		if err == nil && record.ResultKey != nil {
-			data, err := r.r2.GetObject(r.ctx, *record.ResultKey)
-			if err == nil {
-				c.Set("Content-Type", "application/json")
-				return c.Send(data)
-			}
-		}
+	if id == "" {
+		id = c.Get("id") // 古いAPIから呼ばれた場合
 	}
 
-	// R2にない場合は既存のファイルシステムから取得
-	return r.getResultJSON(c)
+	// DBからレコードを取得
+	if r.db == nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "Database not configured",
+		})
+	}
+
+	record, err := r.db.GetAnalysis(id)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "Analysis not found in database",
+		})
+	}
+
+	// R2から取得を試みる
+	if r.r2 != nil {
+		var resultKey string
+		if record.ResultKey != nil {
+			resultKey = *record.ResultKey
+		} else {
+			// R2キーが保存されていない場合、プレフィックスから推測
+			resultKey = fmt.Sprintf("analysis/%s/result.json", id)
+		}
+		
+		data, err := r.r2.GetObject(r.ctx, resultKey)
+		if err == nil {
+			c.Set("Content-Type", "application/json")
+			return c.Send(data)
+		}
+		fmt.Printf("[WARN] Failed to get result from R2 for %s (key: %s): %v\n", id, resultKey, err)
+	}
+
+	// R2から取得できない場合はエラー
+	return c.Status(404).JSON(fiber.Map{
+		"error": "Result file not found in R2",
+	})
 }
 
 func (r *Routes) getAnalysisArtifact(c *fiber.Ctx) error {
 	id := c.Params("id")
 	name := c.Params("name")
 
-	// R2から取得を試みる
-	if r.db != nil && r.r2 != nil {
-		record, err := r.db.GetAnalysis(id)
-		if err == nil {
-			var key *string
-			var contentType string
-
-			switch name {
-			case "heatmap.png":
-				key = record.HeatmapKey
-				contentType = "image/png"
-			case "dist_score.png":
-				key = record.ScatterKey
-				contentType = "image/png"
-			case "logs.txt":
-				key = record.LogsKey
-				contentType = "text/plain"
-			}
-
-			if key != nil {
-				data, err := r.r2.GetObject(r.ctx, *key)
-				if err == nil {
-					c.Set("Content-Type", contentType)
-					return c.Send(data)
-				}
-			}
-		}
-	}
-
-	// R2にない場合は既存のファイルシステムから取得
-	switch name {
-	case "heatmap.png":
-		return r.getHeatmap(c)
-	case "dist_score.png":
-		return r.getScatter(c)
-	default:
+	// DBからレコードを取得
+	if r.db == nil {
 		return c.Status(404).JSON(fiber.Map{
-			"error": "Artifact not found",
+			"error": "Database not configured",
 		})
 	}
+
+	record, err := r.db.GetAnalysis(id)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "Analysis not found in database",
+		})
+	}
+
+	// アーティファクトのキーとContent-Typeを決定
+	var key *string
+	var contentType string
+
+	switch name {
+	case "heatmap.png":
+		key = record.HeatmapKey
+		contentType = "image/png"
+	case "dist_score.png":
+		key = record.ScatterKey
+		contentType = "image/png"
+	case "logs.txt":
+		key = record.LogsKey
+		contentType = "text/plain"
+	default:
+		return c.Status(404).JSON(fiber.Map{
+			"error": fmt.Sprintf("Unknown artifact: %s", name),
+		})
+	}
+
+	// R2から取得を試みる
+	if r.r2 != nil {
+		var artifactKey string
+		if key != nil {
+			artifactKey = *key
+		} else {
+			// R2キーが保存されていない場合、プレフィックスから推測
+			artifactKey = fmt.Sprintf("analysis/%s/%s", id, name)
+		}
+		
+		data, err := r.r2.GetObject(r.ctx, artifactKey)
+		if err == nil {
+			c.Set("Content-Type", contentType)
+			return c.Send(data)
+		}
+		fmt.Printf("[WARN] Failed to get artifact %s from R2 for %s (key: %s): %v\n", name, id, artifactKey, err)
+	}
+
+	// R2から取得できない場合はエラー
+	return c.Status(404).JSON(fiber.Map{
+		"error": fmt.Sprintf("Artifact %s not found in R2", name),
+	})
 }
 
 func (r *Routes) analysisRecordToResponse(record *storage.AnalysisRecord) fiber.Map {

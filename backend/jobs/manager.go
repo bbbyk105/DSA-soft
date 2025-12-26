@@ -83,10 +83,14 @@ func NewManagerWithPersistence(storageDir, pythonPath string, maxConcurrent int,
 
 func (m *Manager) CreateJob(uniprotID string, params map[string]interface{}) (*Job, error) {
 	jobID := uuid.New().String()
-	jobDir := filepath.Join(m.storageDir, jobID)
 	
-	if err := os.MkdirAll(jobDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create job directory: %w", err)
+	// DBがある場合はローカルディレクトリを作成しない（一時ディレクトリをexecuteJobで使用）
+	// DBがない場合のみ従来通りローカルに保存
+	if m.db == nil {
+		jobDir := filepath.Join(m.storageDir, jobID)
+		if err := os.MkdirAll(jobDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create job directory: %w", err)
+		}
 	}
 
 	job := &Job{
@@ -103,11 +107,6 @@ func (m *Manager) CreateJob(uniprotID string, params map[string]interface{}) (*J
 	m.mu.Lock()
 	m.jobs[jobID] = job
 	m.mu.Unlock()
-
-	// ステータスファイルを保存
-	if err := m.saveStatus(job); err != nil {
-		return nil, err
-	}
 
 	// DBに記録（オプショナル）
 	if m.db != nil {
@@ -148,7 +147,44 @@ func (m *Manager) GetJob(jobID string) (*Job, error) {
 
 	job, exists := m.jobs[jobID]
 	if !exists {
-		// ディスクから読み込む
+		// DBから読み込む（DBがある場合）
+		if m.db != nil {
+			record, err := m.db.GetAnalysis(jobID)
+			if err == nil {
+				// DBから取得できた場合、Jobに変換
+				job = &Job{
+					ID:        record.ID,
+					Status:    JobStatus(record.Status),
+					Progress:  0,
+					Message:   "",
+					UniProtID: record.UniProtID,
+					Params:    record.Params,
+					CreatedAt: record.CreatedAt,
+					UpdatedAt: record.CreatedAt,
+				}
+				if record.Progress != nil {
+					job.Progress = *record.Progress
+				}
+				if record.ErrorMessage != nil {
+					job.ErrorMessage = *record.ErrorMessage
+				}
+				if record.FinishedAt != nil {
+					job.UpdatedAt = *record.FinishedAt
+				} else if record.StartedAt != nil {
+					job.UpdatedAt = *record.StartedAt
+				}
+				// 結果URLを設定
+				if record.ResultKey != nil || record.HeatmapKey != nil || record.ScatterKey != nil {
+					job.Result = &JobResult{
+						JSONURL:    fmt.Sprintf("/api/analyses/%s/result.json", jobID),
+						HeatmapURL: fmt.Sprintf("/api/analyses/%s/heatmap.png", jobID),
+						ScatterURL: fmt.Sprintf("/api/analyses/%s/dist_score.png", jobID),
+					}
+				}
+				return job, nil
+			}
+		}
+		// DBがない場合、またはDBから取得できなかった場合はディスクから読み込む（フォールバック）
 		return m.loadJob(jobID)
 	}
 	return job, nil
@@ -205,10 +241,11 @@ func (m *Manager) CancelJob(jobID string) error {
 		}
 	} else {
 		fmt.Printf("[WARN] Command is nil for job: %s\n", jobID)
-		// プロセスIDをファイルから読み込んで強制終了を試みる
-		jobDir := filepath.Join(m.storageDir, jobID)
-		pidFile := filepath.Join(jobDir, "pid.txt")
-		if pidData, err := os.ReadFile(pidFile); err == nil {
+		// プロセスIDをファイルから読み込んで強制終了を試みる（DBがない場合のみ）
+		if m.db == nil {
+			jobDir := filepath.Join(m.storageDir, jobID)
+			pidFile := filepath.Join(jobDir, "pid.txt")
+			if pidData, err := os.ReadFile(pidFile); err == nil {
 			var pid int
 			if _, err := fmt.Sscanf(string(pidData), "%d", &pid); err == nil {
 				fmt.Printf("[DEBUG] Found PID file, attempting to kill process: %d\n", pid)
@@ -219,6 +256,7 @@ func (m *Manager) CancelJob(jobID string) error {
 						fmt.Printf("[DEBUG] Process killed from PID file: %d\n", pid)
 					}
 				}
+			}
 			}
 		}
 	}
@@ -275,10 +313,11 @@ func (m *Manager) DeleteJob(jobID string) error {
 		fmt.Printf("[DEBUG] Job removed from memory: %s\n", jobID)
 	} else {
 		fmt.Printf("[DEBUG] Job not found in memory: %s (may be on disk only)\n", jobID)
-		// メモリにない場合でも、実行中の可能性があるのでPIDファイルからプロセスを終了
-		jobDir := filepath.Join(m.storageDir, jobID)
-		pidFile := filepath.Join(jobDir, "pid.txt")
-		if pidData, err := os.ReadFile(pidFile); err == nil {
+		// メモリにない場合でも、実行中の可能性があるのでPIDファイルからプロセスを終了（DBがない場合のみ）
+		if m.db == nil {
+			jobDir := filepath.Join(m.storageDir, jobID)
+			pidFile := filepath.Join(jobDir, "pid.txt")
+			if pidData, err := os.ReadFile(pidFile); err == nil {
 			var pid int
 			if _, err := fmt.Sscanf(string(pidData), "%d", &pid); err == nil {
 				fmt.Printf("[DEBUG] Found PID file for job %s, attempting to kill process: %d\n", jobID, pid)
@@ -297,15 +336,41 @@ func (m *Manager) DeleteJob(jobID string) error {
 		} else if !os.IsNotExist(err) {
 			fmt.Printf("[WARN] Failed to read PID file %s for job %s: %v\n", pidFile, jobID, err)
 		}
+		}
 	}
 
-	// ストレージディレクトリを削除
-	jobDir := filepath.Join(m.storageDir, jobID)
-	fmt.Printf("[DEBUG] Attempting to delete storage directory: %s\n", jobDir)
-	if err := os.RemoveAll(jobDir); err != nil {
-		fmt.Printf("[WARN] Failed to delete job directory: %v\n", err)
+	// ストレージディレクトリを削除（DBがない場合のみ）
+	if m.db == nil {
+		jobDir := filepath.Join(m.storageDir, jobID)
+		fmt.Printf("[DEBUG] Attempting to delete storage directory: %s\n", jobDir)
+		if err := os.RemoveAll(jobDir); err != nil {
+			fmt.Printf("[WARN] Failed to delete job directory: %v\n", err)
+		} else {
+			fmt.Printf("[DEBUG] Storage directory deleted: %s\n", jobDir)
+		}
 	} else {
-		fmt.Printf("[DEBUG] Storage directory deleted: %s\n", jobDir)
+		fmt.Printf("[DEBUG] DB configured, skipping local directory deletion (temp directory already removed)\n")
+	}
+
+	// R2から削除（オプショナル）
+	// DBからR2キーを取得して削除を試みる
+	if m.r2 != nil {
+		r2Prefix := fmt.Sprintf("analysis/%s/", jobID)
+		fmt.Printf("[DEBUG] Attempting to delete objects from R2 with prefix: %s\n", r2Prefix)
+		if err := m.r2.DeleteObjectsWithPrefix(context.Background(), r2Prefix); err != nil {
+			fmt.Printf("[ERROR] Failed to delete objects from R2 for %s: %v\n", jobID, err)
+			// R2削除エラーは警告のみ（DB削除は続行）
+		} else {
+			fmt.Printf("[DEBUG] Successfully deleted objects from R2: %s\n", r2Prefix)
+		}
+	} else if m.db != nil {
+		// R2が設定されていない場合でも、DBからR2キーを確認してログ出力
+		record, err := m.db.GetAnalysis(jobID)
+		if err == nil {
+			if record.ResultKey != nil || record.HeatmapKey != nil || record.ScatterKey != nil {
+				fmt.Printf("[WARN] R2 keys found in DB for %s but R2 is not configured. R2 objects will not be deleted.\n", jobID)
+			}
+		}
 	}
 
 	// DBから削除（オプショナル）
@@ -337,7 +402,32 @@ func (m *Manager) executeJob(job *Job) {
 
 	m.updateJobStatus(job, StatusRunning, 10, "Starting analysis...")
 
-	jobDir := filepath.Join(m.storageDir, job.ID)
+	// 一時ディレクトリを作成（DBがある場合）
+	var jobDir string
+	var cleanupDir bool
+	if m.db != nil {
+		// 一時ディレクトリを使用
+		tempDir, err := os.MkdirTemp("", fmt.Sprintf("dsa-job-%s-", job.ID))
+		if err != nil {
+			m.updateJobStatus(job, StatusFailed, 0, fmt.Sprintf("Failed to create temp directory: %v", err))
+			return
+		}
+		jobDir = tempDir
+		cleanupDir = true
+		// 処理完了後に確実に削除
+		defer func() {
+			if cleanupDir {
+				if err := os.RemoveAll(jobDir); err != nil {
+					fmt.Printf("[WARN] Failed to remove temp directory %s: %v\n", jobDir, err)
+				} else {
+					fmt.Printf("[DEBUG] Temp directory removed: %s\n", jobDir)
+				}
+			}
+		}()
+	} else {
+		// DBがない場合は従来通り
+		jobDir = filepath.Join(m.storageDir, job.ID)
+	}
 	
 	// デバッグ: ストレージディレクトリ情報
 	fmt.Printf("[DEBUG] Manager storageDir: %s\n", m.storageDir)
@@ -583,6 +673,12 @@ func (m *Manager) executeJob(job *Job) {
 	if err := os.Remove(pidFile); err != nil && !os.IsNotExist(err) {
 		fmt.Printf("[WARN] Failed to remove PID file: %v\n", err)
 	}
+
+	// DBがある場合、一時ディレクトリはdeferで自動削除される
+	// DBがない場合は従来通りローカルファイルを保持
+	if m.db == nil {
+		fmt.Printf("[DEBUG] DB not configured, keeping local files in: %s\n", jobDir)
+	}
 }
 
 func (m *Manager) uploadToR2(job *Job, jobDir string, result map[string]interface{}) error {
@@ -697,8 +793,6 @@ func (m *Manager) updateJobStatus(job *Job, status JobStatus, progress int, mess
 	if status == StatusFailed {
 		job.ErrorMessage = message
 	}
-
-	m.saveStatus(job)
 
 	// DBを更新（オプショナル）
 	if m.db != nil {

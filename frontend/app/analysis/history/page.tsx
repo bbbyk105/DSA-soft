@@ -397,6 +397,60 @@ function HistoryContent() {
                                   </p>
                                 </div>
                               )}
+                            {analysis.status === "failed" &&
+                              analysis.error_message && (
+                                <div className="mt-1 p-2 bg-red-50 border border-red-300 rounded text-xs text-red-800 break-words">
+                                  <div className="flex items-start mb-1">
+                                    <svg
+                                      className="w-3 h-3 mr-1 mt-0.5 text-red-600 flex-shrink-0"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                      />
+                                    </svg>
+                                    <strong className="text-red-900">
+                                      エラー:
+                                    </strong>
+                                  </div>
+                                  <div className="ml-4 whitespace-pre-line leading-relaxed">
+                                    {analysis.error_message
+                                      .split("\n")
+                                      .slice(0, 3)
+                                      .map((line, i) => {
+                                        const trimmed = line.trim();
+                                        if (trimmed.match(/^【.*】/)) {
+                                          return (
+                                            <div
+                                              key={i}
+                                              className="font-bold text-red-900 mt-1 mb-0.5 first:mt-0"
+                                            >
+                                              {trimmed}
+                                            </div>
+                                          );
+                                        } else if (trimmed !== "") {
+                                          return (
+                                            <div key={i} className="mb-0.5">
+                                              {trimmed}
+                                            </div>
+                                          );
+                                        }
+                                        return null;
+                                      })}
+                                    {analysis.error_message.split("\n").length >
+                                      3 && (
+                                      <div className="text-red-600 mt-1 italic">
+                                        ... (詳細は結果ページで確認してください)
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                           </div>
                         </td>
                         <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">

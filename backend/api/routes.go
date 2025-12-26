@@ -99,9 +99,23 @@ func (r *Routes) createJob(c *fiber.Ctx) error {
 	if _, ok := params["min_structures"]; !ok {
 		params["min_structures"] = 5
 	}
-	if _, ok := params["xray_only"]; !ok {
-		params["xray_only"] = true
+	// methodパラメータのデフォルト設定（後方互換性のためxray_onlyもサポート）
+	if _, ok := params["method"]; !ok {
+		if _, ok := params["xray_only"]; !ok {
+			params["method"] = "X-ray"
+		} else {
+			// xray_onlyが指定されている場合は変換
+			if xrayOnly, ok := params["xray_only"].(bool); ok {
+				if xrayOnly {
+					params["method"] = "X-ray"
+				} else {
+					params["method"] = "all"
+				}
+			}
+		}
 	}
+	// xray_onlyパラメータを削除（methodに統一）
+	delete(params, "xray_only")
 	if _, ok := params["negative_pdbid"]; !ok {
 		params["negative_pdbid"] = ""
 	}
@@ -618,9 +632,17 @@ func (r *Routes) analysisRecordToResponse(record *storage.AnalysisRecord) fiber.
 }
 
 func (r *Routes) jobToAnalysisResponse(job *jobs.Job) fiber.Map {
-	method := "all"
-	if xrayOnly, ok := job.Params["xray_only"].(bool); ok && xrayOnly {
-		method = "X-ray"
+	// methodパラメータを取得（後方互換性のためxray_onlyもサポート）
+	method := "X-ray"
+	if methodParam, ok := job.Params["method"].(string); ok && methodParam != "" {
+		// DBに"all"として保存されている場合はそのまま使用
+		method = methodParam
+	} else if xrayOnly, ok := job.Params["xray_only"].(bool); ok {
+		if xrayOnly {
+			method = "X-ray"
+		} else {
+			method = "all"
+		}
 	}
 
 	response := fiber.Map{
@@ -710,6 +732,9 @@ func (r *Routes) listAnalyses(c *fiber.Ctx) error {
 		}
 		if record.Progress != nil {
 			summary["progress"] = *record.Progress
+		}
+		if record.ErrorMessage != nil {
+			summary["error_message"] = *record.ErrorMessage
 		}
 		if record.Metrics != nil {
 			summary["metrics"] = record.Metrics

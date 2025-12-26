@@ -19,7 +19,7 @@ export interface ListAnalysesFilters {
 }
 
 export interface RerunOverrides {
-  method?: "all" | "X-ray";
+  method?: "X-ray" | "NMR" | "EM" | "all";
   sequence_ratio?: number;
   min_structures?: number;
   cis_threshold?: number;

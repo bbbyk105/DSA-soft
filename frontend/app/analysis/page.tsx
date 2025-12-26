@@ -17,7 +17,7 @@ function AnalysisContent() {
   const [params, setParams] = useState<JobParams>({
     sequence_ratio: 0.2,
     min_structures: 5,
-    xray_only: true,
+    method: "X-ray",
     negative_pdbid: "",
     cis_threshold: 3.3,
     proc_cis: true,
@@ -46,7 +46,7 @@ function AnalysisContent() {
             const newParams: JobParams = {
               sequence_ratio: analysis.params.sequence_ratio ?? 0.2,
               min_structures: analysis.params.min_structures ?? 5,
-              xray_only: analysis.params.method === "X-ray",
+              method: analysis.params.method || "X-ray",
               negative_pdbid: analysis.params.negative_pdb_ids?.join(",") ?? "",
               cis_threshold: analysis.params.cis_threshold ?? 3.3,
               proc_cis: analysis.params.proc_cis ?? true,
@@ -201,22 +201,27 @@ function AnalysisContent() {
                   htmlFor="method"
                   className="block text-sm font-medium mb-2"
                 >
-                  Method (PDB filter)
+                  構造決定手法 (Method)
                 </label>
                 <select
                   id="method"
-                  value={params.xray_only ? "X-ray" : "all"}
+                  value={params.method || "X-ray"}
                   onChange={(e) =>
                     setParams({
                       ...params,
-                      xray_only: e.target.value === "X-ray",
+                      method: e.target.value as "X-ray" | "NMR" | "EM" | "all",
                     })
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="X-ray">X-ray</option>
-                  <option value="all">All</option>
+                  <option value="X-ray">X-ray結晶構造解析</option>
+                  <option value="NMR">NMR（核磁気共鳴）</option>
+                  <option value="EM">電子顕微鏡（EM）</option>
+                  <option value="all">全て (X-ray, NMR, 電子顕微鏡)</option>
                 </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  構造決定手法を選択してください。「全て」を選択すると、X-ray、NMR、電子顕微鏡の全てのデータを使用して解析します。
+                </p>
               </div>
 
               <div>
@@ -368,10 +373,16 @@ function AnalysisContent() {
                         className={`px-2 py-1 rounded text-xs ${
                           analysis.status === "running"
                             ? "bg-blue-100 text-blue-800"
+                            : analysis.status === "failed"
+                            ? "bg-red-100 text-red-800"
                             : "bg-gray-100 text-gray-800"
                         }`}
                       >
-                        {analysis.status === "running" ? "実行中" : "待機中"}
+                        {analysis.status === "running"
+                          ? "実行中"
+                          : analysis.status === "failed"
+                          ? "失敗"
+                          : "待機中"}
                       </span>
                       <span className="text-xs sm:text-sm text-gray-500">
                         {analysis.method}
@@ -384,6 +395,60 @@ function AnalysisContent() {
                       詳細を見る →
                     </Link>
                   </div>
+                  {analysis.status === "failed" && analysis.error_message && (
+                    <div className="mt-2 p-3 bg-red-50 border border-red-300 rounded-lg text-xs sm:text-sm text-red-800">
+                      <div className="flex items-start mb-2">
+                        <svg
+                          className="w-4 h-4 mr-1.5 mt-0.5 text-red-600 flex-shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <strong className="text-red-900">エラー:</strong>
+                      </div>
+                      <div className="ml-5 whitespace-pre-line leading-relaxed">
+                        {analysis.error_message.split("\n").map((line, i) => {
+                          const trimmed = line.trim();
+                          if (trimmed.match(/^【.*】/)) {
+                            return (
+                              <div
+                                key={i}
+                                className="font-bold text-red-900 mt-2 mb-1 first:mt-0"
+                              >
+                                {trimmed}
+                              </div>
+                            );
+                          } else if (trimmed.match(/^\d+\.\s/)) {
+                            return (
+                              <div key={i} className="ml-4 mb-1">
+                                {trimmed}
+                              </div>
+                            );
+                          } else if (trimmed.startsWith("  - ")) {
+                            return (
+                              <div key={i} className="ml-6 mb-0.5">
+                                {trimmed}
+                              </div>
+                            );
+                          } else if (trimmed !== "") {
+                            return (
+                              <div key={i} className="mb-1">
+                                {trimmed}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })}
+                      </div>
+                    </div>
+                  )}
                   {(analysis.status === "queued" ||
                     analysis.status === "running") &&
                     analysis.progress !== undefined && (

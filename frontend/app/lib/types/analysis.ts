@@ -9,7 +9,7 @@ export type AnalysisStatus =
 
 export interface AnalysisParams {
   uniprot_ids: string[];
-  method: "all" | "X-ray";
+  method: "X-ray" | "NMR" | "EM" | "all";
   sequence_ratio: number;
   min_structures: number;
   cis_threshold: number;
@@ -39,6 +39,7 @@ export interface AnalysisSummary {
   created_at: string;
   progress?: number;
   metrics?: Metrics;
+  error_message?: string;
 }
 
 export interface AnalysisArtifacts {

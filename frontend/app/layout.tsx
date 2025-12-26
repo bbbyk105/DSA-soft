@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import CookieConsentBanner from "@/components/CookieConsent";
 import Footer from "@/components/Footer";
@@ -6,11 +6,12 @@ import Footer from "@/components/Footer";
 export const metadata: Metadata = {
   title: "DSA (Distance-based Structural Analysis)",
   description: "Distance-based Structural Analysis",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 5,
-  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({

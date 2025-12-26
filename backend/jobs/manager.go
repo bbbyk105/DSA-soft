@@ -110,9 +110,17 @@ func (m *Manager) CreateJob(uniprotID string, params map[string]interface{}) (*J
 
 	// DBに記録（オプショナル）
 	if m.db != nil {
-		method := "all"
-		if xrayOnly, ok := params["xray_only"].(bool); ok && xrayOnly {
-			method = "X-ray"
+		// methodパラメータを取得（デフォルトは"X-ray"）
+		method := "X-ray"
+		if methodParam, ok := params["method"].(string); ok && methodParam != "" {
+			method = methodParam
+		} else if xrayOnly, ok := params["xray_only"].(bool); ok {
+			// 後方互換性のため、xray_onlyもサポート
+			if xrayOnly {
+				method = "X-ray"
+			} else {
+				method = "all"
+			}
 		}
 		// セッションIDを取得
 		sessionID := ""
@@ -463,9 +471,32 @@ func (m *Manager) executeJob(job *Job) {
 	job.cmd = cmd
 	job.mu.Unlock()
 
-	if xrayOnly, ok := job.Params["xray_only"].(bool); ok && xrayOnly {
-		cmd.Args = append(cmd.Args, "--xray-only")
+	// methodパラメータを取得（デフォルトは"X-ray"）
+	method := "X-ray"
+	fmt.Printf("[DEBUG] job.Params[\"method\"] = %v (type: %T)\n", job.Params["method"], job.Params["method"])
+	if methodParam, ok := job.Params["method"].(string); ok {
+		fmt.Printf("[DEBUG] methodParam = %q\n", methodParam)
+		if methodParam != "" {
+			if methodParam == "all" {
+				method = "" // "all"は空文字列に変換（Python CLIのchoicesに合わせる）
+				fmt.Printf("[DEBUG] Converting 'all' to empty string\n")
+			} else {
+				method = methodParam
+			}
+		}
+	} else if xrayOnly, ok := job.Params["xray_only"].(bool); ok {
+		// 後方互換性のため、xray_onlyもサポート
+		fmt.Printf("[DEBUG] Using xray_only parameter: %v\n", xrayOnly)
+		if xrayOnly {
+			method = "X-ray"
+		} else {
+			method = "" // 空文字列で全メソッド
+		}
 	}
+	// methodが空文字列の場合でも--methodを追加（Python CLIのchoicesに""が含まれているため）
+	fmt.Printf("[DEBUG] Final method value: %q\n", method)
+	cmd.Args = append(cmd.Args, "--method", method)
+	fmt.Printf("[DEBUG] Command args after method: %v\n", cmd.Args)
 
 	if negativePDB, ok := job.Params["negative_pdbid"].(string); ok && negativePDB != "" {
 		cmd.Args = append(cmd.Args, "--negative-pdbid", negativePDB)
@@ -590,22 +621,46 @@ func (m *Manager) executeJob(job *Job) {
 			}
 			return
 		}
-		fmt.Printf("[DEBUG] Command execution failed: %v\n", err)
+		
+		fmt.Printf("[ERROR] Command execution failed for job %s: %v\n", job.ID, err)
+		
 		// もし result.json が生成されていれば、その中のエラー内容を優先してユーザーに伝える
 		resultPath := filepath.Join(jobDir, "result.json")
+		errorMessage := fmt.Sprintf("Analysis failed: %v", err)
 
 		if data, readErr := os.ReadFile(resultPath); readErr == nil {
 			var res map[string]interface{}
 			if jsonErr := json.Unmarshal(data, &res); jsonErr == nil {
+				// errorフィールドを確認
 				if msg, ok := res["error"].(string); ok && msg != "" {
-					m.updateJobStatus(job, StatusFailed, 0, msg)
-					return
+					errorMessage = msg
+					fmt.Printf("[ERROR] Analysis failed with error from result.json: %s\n", msg)
+				} else if status, ok := res["status"].(string); ok && status == "failed" {
+					// statusがfailedの場合も確認
+					if msg, ok := res["error"].(string); ok && msg != "" {
+						errorMessage = msg
+						fmt.Printf("[ERROR] Analysis failed with error from result.json: %s\n", msg)
+					} else {
+						fmt.Printf("[WARN] result.json has status='failed' but no error message\n")
+					}
+				} else {
+					fmt.Printf("[WARN] result.json exists but contains no error information. Content: %+v\n", res)
+				}
+			} else {
+				fmt.Printf("[WARN] Failed to parse result.json: %v\n", jsonErr)
+				if len(data) > 500 {
+					fmt.Printf("[DEBUG] result.json content (first 500 chars): %s\n", string(data[:500]))
+				} else {
+					fmt.Printf("[DEBUG] result.json content: %s\n", string(data))
 				}
 			}
+		} else {
+			fmt.Printf("[WARN] result.json not found or unreadable at %s: %v\n", resultPath, readErr)
 		}
 
-		// result.json が無い / パースできない場合は従来通りのメッセージ
-		m.updateJobStatus(job, StatusFailed, 0, fmt.Sprintf("Analysis failed: %v", err))
+		// エラーメッセージをログに出力してから、ジョブステータスを更新
+		fmt.Printf("[ERROR] Job %s failed: %s\n", job.ID, errorMessage)
+		m.updateJobStatus(job, StatusFailed, 0, errorMessage)
 		return
 	}
 	fmt.Printf("[DEBUG] Command executed successfully\n")
@@ -809,6 +864,9 @@ func (m *Manager) updateJobStatus(job *Job, status JobStatus, progress int, mess
 
 	if status == StatusFailed {
 		job.ErrorMessage = message
+		fmt.Printf("[ERROR] Job %s failed: %s\n", job.ID, message)
+	} else {
+		fmt.Printf("[DEBUG] Job %s status updated: %s (progress: %d%%) - %s\n", job.ID, status, progress, message)
 	}
 
 	// DBを更新（オプショナル）
@@ -825,6 +883,8 @@ func (m *Manager) updateJobStatus(job *Job, status JobStatus, progress int, mess
 		if status == StatusFailed {
 			if err := m.db.FailAnalysis(job.ID, message); err != nil {
 				fmt.Printf("[WARN] Failed to fail analysis in DB: %v\n", err)
+			} else {
+				fmt.Printf("[DEBUG] Error message saved to DB for job %s: %s\n", job.ID, message)
 			}
 		}
 	}

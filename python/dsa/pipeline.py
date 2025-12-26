@@ -327,9 +327,11 @@ def run_DSA(
         reso_list = []
         for pdbid in set(pdbids):
             reso = unidata.pdbdata.at["resolution", pdbid]
-            reso = "".join(char for char in reso if char.isdigit() or char == ".")
-            if reso:
-                reso_list.append(float(reso))
+            # Noneチェックを追加（NMRデータには分解能がないため）
+            if reso is not None:
+                reso = "".join(char for char in reso if char.isdigit() or char == ".")
+                if reso:
+                    reso_list.append(float(reso))
         if reso_list:
             reso_ave = Decimal(str(np.mean(reso_list))).quantize(
                 Decimal("0.01"), rounding=ROUND_HALF_UP

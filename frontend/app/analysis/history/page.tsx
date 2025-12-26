@@ -167,24 +167,26 @@ function HistoryContent() {
   };
 
   return (
-    <div className="min-h-screen p-8 bg-gray-50">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <Link
             href="/analysis"
-            className="inline-flex items-center text-blue-600 hover:underline"
+            className="inline-flex items-center text-blue-600 hover:underline text-sm sm:text-base"
           >
             <span className="mr-1">←</span>
             Home に戻る
           </Link>
         </div>
 
-        <h1 className="text-3xl font-bold mb-8">解析履歴</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-8">
+          解析履歴
+        </h1>
 
         {/* 検索フィルター */}
-        <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-          <h2 className="text-xl font-bold mb-4">検索</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">検索</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">
                 UniProt ID
@@ -249,11 +251,13 @@ function HistoryContent() {
 
         {/* Compare selection */}
         {compareIds.length > 0 && (
-          <div className="bg-blue-50 p-4 rounded-lg mb-6 flex items-center justify-between">
-            <span className="text-blue-800">{compareIds.length} 件選択中</span>
+          <div className="bg-blue-50 p-3 sm:p-4 rounded-lg mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <span className="text-blue-800 text-sm sm:text-base">
+              {compareIds.length} 件選択中
+            </span>
             <button
               onClick={goToCompare}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm sm:text-base w-full sm:w-auto"
             >
               比較
             </button>
@@ -262,183 +266,187 @@ function HistoryContent() {
 
         {/* エラー表示 */}
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm sm:text-base">
             {error}
           </div>
         )}
 
         {/* テーブル */}
         {loading ? (
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
             <p>読み込み中...</p>
           </div>
         ) : analyses.length === 0 ? (
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
             <p>解析が見つかりませんでした。</p>
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      選択
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      作成日時
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      UniProt ID
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      手法
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      ステータス
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      エントリ数
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      長さ%
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      UMF
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      平均スコア
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      cis数
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      操作
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {analyses.map((analysis) => (
-                    <tr key={analysis.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={compareIds.includes(analysis.id)}
-                          onChange={() => toggleCompare(analysis.id)}
-                          disabled={
-                            analysis.status === "cancelled" ||
-                            analysis.status === "failed"
-                          }
-                          className="rounded"
-                        />
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {new Date(analysis.created_at).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium">
-                        {analysis.uniprot_id}
-                      </td>
-                      <td className="px-4 py-3 text-sm">{analysis.method}</td>
-                      <td className="px-4 py-3">
-                        <div className="space-y-1">
-                          <span
-                            className={`px-2 py-1 rounded text-xs ${
-                              analysis.status === "done"
-                                ? "bg-green-100 text-green-800"
-                                : analysis.status === "failed"
-                                ? "bg-red-100 text-red-800"
-                                : analysis.status === "cancelled"
-                                ? "bg-orange-100 text-orange-800"
-                                : analysis.status === "running"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {analysis.status === "done"
-                              ? "完了"
-                              : analysis.status === "failed"
-                              ? "失敗"
-                              : analysis.status === "cancelled"
-                              ? "キャンセル"
-                              : analysis.status === "running"
-                              ? "実行中"
-                              : analysis.status === "queued"
-                              ? "待機中"
-                              : analysis.status}
-                          </span>
-                          {(analysis.status === "queued" ||
-                            analysis.status === "running") &&
-                            analysis.progress !== undefined && (
-                              <div className="w-full">
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                    style={{
-                                      width: `${Math.min(
-                                        Math.max(analysis.progress, 0),
-                                        100
-                                      )}%`,
-                                    }}
-                                  ></div>
-                                </div>
-                                <p className="text-xs text-gray-600 mt-1">
-                                  {Math.min(
-                                    Math.max(analysis.progress, 0),
-                                    100
-                                  )}
-                                  %
-                                </p>
-                              </div>
-                            )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "entries")}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "length_percent")}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "umf")}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "mean_score")}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "cis_num")}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() =>
-                              router.push(
-                                `/analysis/result?job_id=${analysis.id}`
-                              )
-                            }
-                            className="text-blue-600 hover:underline text-sm"
-                          >
-                            開く
-                          </button>
-                          {analysis.status === "done" && (
-                            <button
-                              onClick={() => handleRerun(analysis.id)}
-                              className="text-purple-600 hover:underline text-sm"
-                            >
-                              再実行
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDelete(analysis.id)}
-                            className="text-red-600 hover:underline text-sm"
-                          >
-                            削除
-                          </button>
-                        </div>
-                      </td>
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium sticky left-0 bg-gray-100 z-10">
+                        選択
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">
+                        作成日時
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">
+                        UniProt ID
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">
+                        手法
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">
+                        ステータス
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">
+                        エントリ数
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">
+                        長さ%
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">
+                        UMF
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">
+                        平均スコア
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">
+                        cis数
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">
+                        操作
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {analyses.map((analysis) => (
+                      <tr key={analysis.id} className="hover:bg-gray-50">
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 sticky left-0 bg-white z-10">
+                          <input
+                            type="checkbox"
+                            checked={compareIds.includes(analysis.id)}
+                            onChange={() => toggleCompare(analysis.id)}
+                            disabled={
+                              analysis.status === "cancelled" ||
+                              analysis.status === "failed"
+                            }
+                            className="rounded"
+                          />
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                          {new Date(analysis.created_at).toLocaleString()}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium">
+                          {analysis.uniprot_id}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                          {analysis.method}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3">
+                          <div className="space-y-1">
+                            <span
+                              className={`px-2 py-1 rounded text-xs ${
+                                analysis.status === "done"
+                                  ? "bg-green-100 text-green-800"
+                                  : analysis.status === "failed"
+                                  ? "bg-red-100 text-red-800"
+                                  : analysis.status === "cancelled"
+                                  ? "bg-orange-100 text-orange-800"
+                                  : analysis.status === "running"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {analysis.status === "done"
+                                ? "完了"
+                                : analysis.status === "failed"
+                                ? "失敗"
+                                : analysis.status === "cancelled"
+                                ? "キャンセル"
+                                : analysis.status === "running"
+                                ? "実行中"
+                                : analysis.status === "queued"
+                                ? "待機中"
+                                : analysis.status}
+                            </span>
+                            {(analysis.status === "queued" ||
+                              analysis.status === "running") &&
+                              analysis.progress !== undefined && (
+                                <div className="w-full">
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div
+                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                      style={{
+                                        width: `${Math.min(
+                                          Math.max(analysis.progress, 0),
+                                          100
+                                        )}%`,
+                                      }}
+                                    ></div>
+                                  </div>
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    {Math.min(
+                                      Math.max(analysis.progress, 0),
+                                      100
+                                    )}
+                                    %
+                                  </p>
+                                </div>
+                              )}
+                          </div>
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                          {formatMetric(analysis.metrics, "entries")}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                          {formatMetric(analysis.metrics, "length_percent")}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                          {formatMetric(analysis.metrics, "umf")}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                          {formatMetric(analysis.metrics, "mean_score")}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                          {formatMetric(analysis.metrics, "cis_num")}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3">
+                          <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                            <button
+                              onClick={() =>
+                                router.push(
+                                  `/analysis/result?job_id=${analysis.id}`
+                                )
+                              }
+                              className="text-blue-600 hover:underline text-xs sm:text-sm"
+                            >
+                              開く
+                            </button>
+                            {analysis.status === "done" && (
+                              <button
+                                onClick={() => handleRerun(analysis.id)}
+                                className="text-purple-600 hover:underline text-xs sm:text-sm"
+                              >
+                                再実行
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDelete(analysis.id)}
+                              className="text-red-600 hover:underline text-xs sm:text-sm"
+                            >
+                              削除
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -451,9 +459,9 @@ export default function HistoryPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen p-8 bg-gray-50">
+        <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
           <div className="max-w-7xl mx-auto">
-            <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
               <p>読み込み中...</p>
             </div>
           </div>

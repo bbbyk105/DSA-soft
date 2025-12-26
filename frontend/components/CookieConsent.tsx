@@ -13,26 +13,35 @@ export default function CookieConsentBanner() {
       cookieName="dsa_cookie_consent"
       style={{
         background: "#2B373B",
-        padding: "20px",
-        fontSize: "14px",
+        padding: "12px 16px",
+        fontSize: "12px",
         zIndex: 9999,
+        flexDirection: "column",
+        alignItems: "center",
+        textAlign: "center",
       }}
       buttonStyle={{
         background: "#4CAF50",
         color: "#fff",
-        fontSize: "14px",
-        padding: "10px 20px",
+        fontSize: "12px",
+        padding: "8px 16px",
         borderRadius: "4px",
-        marginLeft: "10px",
+        marginLeft: "0",
+        marginTop: "8px",
         cursor: "pointer",
+        width: "100%",
+        maxWidth: "200px",
       }}
       declineButtonStyle={{
         background: "#f44336",
         color: "#fff",
-        fontSize: "14px",
-        padding: "10px 20px",
+        fontSize: "12px",
+        padding: "8px 16px",
         borderRadius: "4px",
         cursor: "pointer",
+        marginTop: "8px",
+        width: "100%",
+        maxWidth: "200px",
       }}
       expires={365}
       onAccept={() => {

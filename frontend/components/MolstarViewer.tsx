@@ -87,7 +87,7 @@ export default function MolstarViewer({
   }, [pdbId]);
 
   return (
-    <div className={`relative w-full h-[600px] ${className}`}>
+    <div className={`relative w-full h-[400px] sm:h-[500px] md:h-[600px] ${className}`}>
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-red-50 rounded z-10">
           <div className="text-center space-y-2 px-4">

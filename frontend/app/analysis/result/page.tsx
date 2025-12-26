@@ -73,7 +73,7 @@ function ResultContent() {
             );
           }
         } else if (jobData.status === "failed") {
-          setError(jobData.error_message || "Analysis failed");
+          setError(jobData.error_message || "解析失敗");
         }
       } catch (err) {
         setError(
@@ -87,9 +87,9 @@ function ResultContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen p-8 bg-gray-50">
+      <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
         <div className="max-w-6xl mx-auto">
-          <div className="bg-red-100 border border-red-400 text-red-700 p-4 rounded">
+          <div className="bg-red-100 border border-red-400 text-red-700 p-3 sm:p-4 rounded text-sm sm:text-base">
             <p className="font-bold">Error:</p>
             <p>{error}</p>
           </div>
@@ -100,9 +100,9 @@ function ResultContent() {
 
   if (!job || !result) {
     return (
-      <div className="min-h-screen p-8 bg-gray-50">
+      <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
         <div className="max-w-6xl mx-auto">
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
             <p>Loading...</p>
           </div>
         </div>
@@ -115,12 +115,12 @@ function ResultContent() {
   const scoreSummary = result.score_summary || {};
 
   return (
-    <div className="min-h-screen p-8 bg-gray-50">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
           <Link
             href="/analysis"
-            className="inline-flex items-center text-blue-600 hover:underline"
+            className="inline-flex items-center text-blue-600 hover:underline text-sm sm:text-base"
           >
             <span className="mr-1">←</span>
             Home に戻る
@@ -138,25 +138,25 @@ function ResultContent() {
                 }
                 window.location.href = `/analysis/compare?ids=${ids.join(",")}`;
               }}
-              className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700"
+              className="bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-purple-700 text-sm sm:text-base w-full sm:w-auto"
             >
               Compareに追加 / Add to Compare
             </button>
           )}
         </div>
-        <h1 className="text-3xl font-bold mb-2">
-          DSA 解析結果 - {stats.uniprot_id || result.uniprot_id}
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">
+          DSA (Distance-based Structural Analysis) 解析結果 - {stats.uniprot_id || result.uniprot_id}
         </h1>
-        <p className="text-sm text-gray-600 mb-8">ジョブ ID: {jobId}</p>
+        <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-8 break-words">ジョブ ID: {jobId}</p>
 
-        <div className="space-y-8">
+        <div className="space-y-4 sm:space-y-8">
           {/* 解析概要 */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               {/* 解析概要 Overview */}
-              <div className="bg-white border border-gray-200 rounded-lg p-6">
-                <h2 className="text-2xl font-bold mb-4">解析概要 Overview</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+              <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">解析概要 Overview</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                   <div>
                     <p className="text-sm text-gray-600">UniProt ID</p>
                     <p className="text-lg font-semibold">
@@ -288,11 +288,11 @@ function ResultContent() {
 
               {/* Cisペプチド結合解析結果 */}
               {cisAnalysis.cis_num !== undefined && cisAnalysis.cis_num > 0 && (
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h2 className="text-2xl font-bold mb-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+                  <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
                     Cisペプチド結合解析結果
                   </h2>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                     <div>
                       <p className="text-sm text-gray-600">
                         Cisペア数 (Cis Pair Count)
@@ -379,14 +379,14 @@ function ResultContent() {
 
           {/* ヒートマップ */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">DSA Score Heatmap</h2>
+            <div className="p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">DSA Score Heatmap</h2>
               {job.result?.heatmap_url && (
                 <div className="flex justify-center">
                   <img
                     src={getResultUrl(jobId!, "heatmap.png")}
                     alt="DSA Score Heatmap"
-                    className="w-full md:w-1/2 max-w-2xl h-auto rounded-lg shadow-md"
+                    className="w-full sm:w-3/4 md:w-1/2 max-w-2xl h-auto rounded-lg shadow-md"
                   />
                 </div>
               )}
@@ -395,14 +395,14 @@ function ResultContent() {
 
           {/* Distance-Score Plot */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Distance-Score Plot</h2>
+            <div className="p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Distance-Score Plot</h2>
               {job.result?.scatter_url && (
                 <div className="flex justify-center">
                   <img
                     src={getResultUrl(jobId!, "dist_score.png")}
                     alt="Distance vs Score"
-                    className="w-full md:w-1/2 max-w-2xl h-auto rounded-lg shadow-md"
+                    className="w-full sm:w-3/4 md:w-1/2 max-w-2xl h-auto rounded-lg shadow-md"
                   />
                 </div>
               )}
@@ -412,11 +412,11 @@ function ResultContent() {
           {/* 3D Structure Viewer */}
           {pdbList.length > 0 && (
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="p-6">
-                <h2 className="text-2xl font-bold mb-4">
+              <div className="p-4 sm:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
                   3D Structure Viewer (Mol*)
                 </h2>
-                <div className="mb-4">
+                <div className="mb-3 sm:mb-4">
                   <label
                     htmlFor="pdb-select"
                     className="block text-sm font-medium text-gray-700 mb-2"
@@ -427,7 +427,7 @@ function ResultContent() {
                     id="pdb-select"
                     value={selectedPdbId || ""}
                     onChange={(e) => setSelectedPdbId(e.target.value)}
-                    className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full sm:w-1/2 md:w-1/3 px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                   >
                     {pdbList.map((pdbId) => (
                       <option key={pdbId} value={pdbId}>
@@ -457,9 +457,9 @@ export default function ResultPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen p-8 bg-gray-50">
+        <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
           <div className="max-w-6xl mx-auto">
-            <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
               <p>Loading...</p>
             </div>
           </div>

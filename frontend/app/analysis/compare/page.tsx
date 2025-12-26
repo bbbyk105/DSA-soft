@@ -142,297 +142,355 @@ function CompareContent() {
   );
 
   return (
-    <div className="min-h-screen p-8 bg-gray-50">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <Link
             href="/analysis/history"
-            className="inline-flex items-center text-blue-600 hover:underline"
+            className="inline-flex items-center text-blue-600 hover:underline text-sm sm:text-base"
           >
             <span className="mr-1">←</span>
             履歴に戻る
           </Link>
           <button
             onClick={() => setShowAddModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-blue-700 text-sm sm:text-base w-full sm:w-auto"
           >
             + 解析を追加
           </button>
         </div>
 
-        <h1 className="text-3xl font-bold mb-8">解析比較</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-8">
+          解析比較
+        </h1>
 
         {analyses.length > 0 && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded">
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded text-sm sm:text-base">
             {analyses.length} 件の解析を比較中
           </div>
         )}
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm sm:text-base">
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
             <p>読み込み中...</p>
           </div>
         ) : analyses.length === 0 ? (
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
             <p>比較する解析がありません。</p>
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium border-r">
-                      指標
-                    </th>
-                    {analyses.map((analysis) => (
-                      <th
-                        key={analysis.id}
-                        className="px-4 py-3 text-left text-sm font-medium relative"
-                      >
-                        <button
-                          onClick={() => removeAnalysis(analysis.id)}
-                          className="absolute top-1 right-1 text-red-600 hover:text-red-800 text-lg font-bold"
-                          title="削除"
-                        >
-                          ×
-                        </button>
-                        <div className="font-bold">{analysis.uniprot_id}</div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(analysis.created_at).toLocaleDateString()}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {analysis.method}
-                        </div>
-                        <button
-                          onClick={() =>
-                            router.push(
-                              `/analysis/result?job_id=${analysis.id}`
-                            )
-                          }
-                          className="mt-2 text-blue-600 hover:underline text-xs"
-                        >
-                          表示
-                        </button>
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium border-r sticky left-0 bg-gray-100 z-10">
+                        指標
                       </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  <tr>
-                    <td className="px-4 py-3 font-medium border-r">
-                      エントリ数
-                    </td>
-                    {analyses.map((analysis) => (
-                      <td key={analysis.id} className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "entries")}
-                        {baseAnalysis && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(
-                              baseAnalysis.metrics,
-                              analysis.metrics,
-                              "entries"
-                            )}
-                          </span>
-                        )}
+                      {analyses.map((analysis) => (
+                        <th
+                          key={analysis.id}
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium relative min-w-[120px] sm:min-w-[150px]"
+                        >
+                          <button
+                            onClick={() => removeAnalysis(analysis.id)}
+                            className="absolute top-1 right-1 text-red-600 hover:text-red-800 text-base sm:text-lg font-bold"
+                            title="削除"
+                          >
+                            ×
+                          </button>
+                          <div className="font-bold text-xs sm:text-sm pr-6">
+                            {analysis.uniprot_id}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(analysis.created_at).toLocaleDateString()}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {analysis.method}
+                          </div>
+                          <button
+                            onClick={() =>
+                              router.push(
+                                `/analysis/result?job_id=${analysis.id}`
+                              )
+                            }
+                            className="mt-2 text-blue-600 hover:underline text-xs"
+                          >
+                            表示
+                          </button>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    <tr>
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium border-r text-xs sm:text-sm sticky left-0 bg-white z-10">
+                        エントリ数
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-medium border-r">鎖数</td>
-                    {analyses.map((analysis) => (
-                      <td key={analysis.id} className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "chains")}
-                        {baseAnalysis && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(
-                              baseAnalysis.metrics,
-                              analysis.metrics,
-                              "chains"
-                            )}
-                          </span>
-                        )}
+                      {analyses.map((analysis) => (
+                        <td
+                          key={analysis.id}
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm"
+                        >
+                          {formatMetric(analysis.metrics, "entries")}
+                          {baseAnalysis && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              {formatDiff(
+                                baseAnalysis.metrics,
+                                analysis.metrics,
+                                "entries"
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium border-r text-xs sm:text-sm sticky left-0 bg-white z-10">
+                        鎖数
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-medium border-r">長さ%</td>
-                    {analyses.map((analysis) => (
-                      <td key={analysis.id} className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "length_percent")}
-                        {baseAnalysis && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(
-                              baseAnalysis.metrics,
-                              analysis.metrics,
-                              "length_percent"
-                            )}
-                          </span>
-                        )}
+                      {analyses.map((analysis) => (
+                        <td
+                          key={analysis.id}
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm"
+                        >
+                          {formatMetric(analysis.metrics, "chains")}
+                          {baseAnalysis && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              {formatDiff(
+                                baseAnalysis.metrics,
+                                analysis.metrics,
+                                "chains"
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium border-r text-xs sm:text-sm sticky left-0 bg-white z-10">
+                        長さ%
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-medium border-r">UMF</td>
-                    {analyses.map((analysis) => (
-                      <td key={analysis.id} className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "umf")}
-                        {baseAnalysis && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(
-                              baseAnalysis.metrics,
-                              analysis.metrics,
-                              "umf"
-                            )}
-                          </span>
-                        )}
+                      {analyses.map((analysis) => (
+                        <td
+                          key={analysis.id}
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm"
+                        >
+                          {formatMetric(analysis.metrics, "length_percent")}
+                          {baseAnalysis && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              {formatDiff(
+                                baseAnalysis.metrics,
+                                analysis.metrics,
+                                "length_percent"
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium border-r text-xs sm:text-sm sticky left-0 bg-white z-10">
+                        UMF
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-medium border-r">
-                      平均スコア
-                    </td>
-                    {analyses.map((analysis) => (
-                      <td key={analysis.id} className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "mean_score")}
-                        {baseAnalysis && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(
-                              baseAnalysis.metrics,
-                              analysis.metrics,
-                              "mean_score"
-                            )}
-                          </span>
-                        )}
+                      {analyses.map((analysis) => (
+                        <td
+                          key={analysis.id}
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm"
+                        >
+                          {formatMetric(analysis.metrics, "umf")}
+                          {baseAnalysis && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              {formatDiff(
+                                baseAnalysis.metrics,
+                                analysis.metrics,
+                                "umf"
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium border-r text-xs sm:text-sm sticky left-0 bg-white z-10">
+                        平均スコア
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-medium border-r">cis数</td>
-                    {analyses.map((analysis) => (
-                      <td key={analysis.id} className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "cis_num")}
-                        {baseAnalysis && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(
-                              baseAnalysis.metrics,
-                              analysis.metrics,
-                              "cis_num"
-                            )}
-                          </span>
-                        )}
+                      {analyses.map((analysis) => (
+                        <td
+                          key={analysis.id}
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm"
+                        >
+                          {formatMetric(analysis.metrics, "mean_score")}
+                          {baseAnalysis && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              {formatDiff(
+                                baseAnalysis.metrics,
+                                analysis.metrics,
+                                "mean_score"
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium border-r text-xs sm:text-sm sticky left-0 bg-white z-10">
+                        cis数
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-medium border-r">
-                      cis距離平均
-                    </td>
-                    {analyses.map((analysis) => (
-                      <td key={analysis.id} className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "cis_dist_mean")}
-                        {baseAnalysis && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(
-                              baseAnalysis.metrics,
-                              analysis.metrics,
-                              "cis_dist_mean"
-                            )}
-                          </span>
-                        )}
+                      {analyses.map((analysis) => (
+                        <td
+                          key={analysis.id}
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm"
+                        >
+                          {formatMetric(analysis.metrics, "cis_num")}
+                          {baseAnalysis && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              {formatDiff(
+                                baseAnalysis.metrics,
+                                analysis.metrics,
+                                "cis_num"
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium border-r text-xs sm:text-sm sticky left-0 bg-white z-10">
+                        cis距離平均
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-medium border-r">解像度</td>
-                    {analyses.map((analysis) => (
-                      <td key={analysis.id} className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "resolution")}
-                        {baseAnalysis && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(
-                              baseAnalysis.metrics,
-                              analysis.metrics,
-                              "resolution"
-                            )}
-                          </span>
-                        )}
+                      {analyses.map((analysis) => (
+                        <td
+                          key={analysis.id}
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm"
+                        >
+                          {formatMetric(analysis.metrics, "cis_dist_mean")}
+                          {baseAnalysis && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              {formatDiff(
+                                baseAnalysis.metrics,
+                                analysis.metrics,
+                                "cis_dist_mean"
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium border-r text-xs sm:text-sm sticky left-0 bg-white z-10">
+                        解像度
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-medium border-r">
-                      平均標準偏差
-                    </td>
-                    {analyses.map((analysis) => (
-                      <td key={analysis.id} className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "mean_std")}
-                        {baseAnalysis && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(
-                              baseAnalysis.metrics,
-                              analysis.metrics,
-                              "mean_std"
-                            )}
-                          </span>
-                        )}
+                      {analyses.map((analysis) => (
+                        <td
+                          key={analysis.id}
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm"
+                        >
+                          {formatMetric(analysis.metrics, "resolution")}
+                          {baseAnalysis && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              {formatDiff(
+                                baseAnalysis.metrics,
+                                analysis.metrics,
+                                "resolution"
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium border-r text-xs sm:text-sm sticky left-0 bg-white z-10">
+                        平均標準偏差
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-medium border-r">
-                      cis距離標準偏差
-                    </td>
-                    {analyses.map((analysis) => (
-                      <td key={analysis.id} className="px-4 py-3 text-sm">
-                        {formatMetric(analysis.metrics, "cis_dist_std")}
-                        {baseAnalysis && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            {formatDiff(
-                              baseAnalysis.metrics,
-                              analysis.metrics,
-                              "cis_dist_std"
-                            )}
-                          </span>
-                        )}
+                      {analyses.map((analysis) => (
+                        <td
+                          key={analysis.id}
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm"
+                        >
+                          {formatMetric(analysis.metrics, "mean_std")}
+                          {baseAnalysis && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              {formatDiff(
+                                baseAnalysis.metrics,
+                                analysis.metrics,
+                                "mean_std"
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium border-r text-xs sm:text-sm sticky left-0 bg-white z-10">
+                        cis距離標準偏差
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-medium border-r">作成日時</td>
-                    {analyses.map((analysis) => (
-                      <td key={analysis.id} className="px-4 py-3 text-sm">
-                        {new Date(analysis.created_at).toLocaleString()}
+                      {analyses.map((analysis) => (
+                        <td
+                          key={analysis.id}
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm"
+                        >
+                          {formatMetric(analysis.metrics, "cis_dist_std")}
+                          {baseAnalysis && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              {formatDiff(
+                                baseAnalysis.metrics,
+                                analysis.metrics,
+                                "cis_dist_std"
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium border-r text-xs sm:text-sm sticky left-0 bg-white z-10">
+                        作成日時
                       </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-medium border-r">手法</td>
-                    {analyses.map((analysis) => (
-                      <td key={analysis.id} className="px-4 py-3 text-sm">
-                        {analysis.method}
+                      {analyses.map((analysis) => (
+                        <td
+                          key={analysis.id}
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm"
+                        >
+                          {new Date(analysis.created_at).toLocaleString()}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium border-r text-xs sm:text-sm sticky left-0 bg-white z-10">
+                        手法
                       </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
+                      {analyses.map((analysis) => (
+                        <td
+                          key={analysis.id}
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm"
+                        >
+                          {analysis.method}
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
 
         {/* ヒートマップ比較 */}
         {!loading && analyses.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md overflow-hidden mt-8">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-6">ヒートマップ比較</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="bg-white rounded-lg shadow-md overflow-hidden mt-4 sm:mt-8">
+            <div className="p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
+                ヒートマップ比較
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {analyses.map((analysis) => (
                   <div
                     key={analysis.id}
@@ -471,12 +529,12 @@ function CompareContent() {
 
         {/* Distance-Score Plot 比較 */}
         {!loading && analyses.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md overflow-hidden mt-8">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-6">
+          <div className="bg-white rounded-lg shadow-md overflow-hidden mt-4 sm:mt-8">
+            <div className="p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
                 Distance-Score Plot 比較
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {analyses.map((analysis) => (
                   <div
                     key={analysis.id}
@@ -515,10 +573,10 @@ function CompareContent() {
 
         {/* Add Analysis Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
-              <div className="p-6 border-b flex items-center justify-between">
-                <h2 className="text-2xl font-bold">解析を追加</h2>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] sm:max-h-[80vh] overflow-hidden flex flex-col">
+              <div className="p-4 sm:p-6 border-b flex items-center justify-between">
+                <h2 className="text-xl sm:text-2xl font-bold">解析を追加</h2>
                 <button
                   onClick={() => {
                     setShowAddModal(false);
@@ -529,15 +587,17 @@ function CompareContent() {
                   ×
                 </button>
               </div>
-              <div className="p-6 overflow-y-auto flex-1">
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1">
                 {availableAnalyses.length === 0 ? (
-                  <p className="text-gray-500">追加できる解析がありません。</p>
+                  <p className="text-gray-500 text-sm sm:text-base">
+                    追加できる解析がありません。
+                  </p>
                 ) : (
                   <div className="space-y-2">
                     {availableAnalyses.map((analysis) => (
                       <label
                         key={analysis.id}
-                        className="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer"
+                        className="flex items-center p-2 sm:p-3 border rounded hover:bg-gray-50 cursor-pointer"
                       >
                         <input
                           type="checkbox"
@@ -565,24 +625,24 @@ function CompareContent() {
                   </div>
                 )}
               </div>
-              <div className="p-6 border-t flex justify-between items-center">
+              <div className="p-4 sm:p-6 border-t flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
                 <div className="text-sm text-gray-600">
                   {modalSelectedIds.length} 件選択中
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => {
                       setShowAddModal(false);
                       setModalSelectedIds([]);
                     }}
-                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                    className="flex-1 sm:flex-none px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 text-sm sm:text-base"
                   >
                     キャンセル
                   </button>
                   <button
                     onClick={addAnalyses}
                     disabled={modalSelectedIds.length === 0}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                   >
                     追加 ({modalSelectedIds.length})
                   </button>
@@ -600,9 +660,9 @@ export default function ComparePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen p-8 bg-gray-50">
+        <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
           <div className="max-w-7xl mx-auto">
-            <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
               <p>読み込み中...</p>
             </div>
           </div>

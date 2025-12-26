@@ -4,7 +4,11 @@ import { useEffect, useState, Suspense, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createJob, type JobParams } from "@/lib/api";
-import { getAnalysis, listAnalyses, type AnalysisSummary } from "@/app/lib/api/analyses";
+import {
+  getAnalysis,
+  listAnalyses,
+  type AnalysisSummary,
+} from "@/app/lib/api/analyses";
 
 function AnalysisContent() {
   const router = useRouter();
@@ -153,13 +157,15 @@ function AnalysisContent() {
   };
 
   return (
-    <div className="min-h-screen p-8 bg-gray-50">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-3xl font-bold">DSA Analysis</h1>
+        <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold">
+            DSA (Distance Scoring Analysis)
+          </h1>
           <Link
             href="/analysis/history"
-            className="text-blue-600 hover:underline font-medium"
+            className="text-blue-600 hover:underline font-medium text-sm sm:text-base"
           >
             解析履歴 / History →
           </Link>
@@ -167,9 +173,9 @@ function AnalysisContent() {
 
         <form
           onSubmit={handleSubmit}
-          className="bg-white p-8 rounded-lg shadow-md mb-8"
+          className="bg-white p-4 sm:p-6 md:p-8 rounded-lg shadow-md mb-6 sm:mb-8"
         >
-          <div className="grid grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
             {/* 左列 */}
             <div className="space-y-4">
               <div>
@@ -292,8 +298,10 @@ function AnalysisContent() {
           </div>
 
           {/* オプションセクション */}
-          <div className="mb-6">
-            <h3 className="text-lg font-medium mb-3">オプション</h3>
+          <div className="mb-4 sm:mb-6">
+            <h3 className="text-base sm:text-lg font-medium mb-2 sm:mb-3">
+              オプション
+            </h3>
             <div className="space-y-2">
               <label className="flex items-center">
                 <input
@@ -341,17 +349,19 @@ function AnalysisContent() {
 
         {/* 進行中のタスク */}
         {runningAnalyses.length > 0 && (
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-bold mb-4">進行中の解析</h2>
-            <div className="space-y-4">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+            <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">
+              進行中の解析
+            </h2>
+            <div className="space-y-3 sm:space-y-4">
               {runningAnalyses.map((analysis) => (
                 <div
                   key={analysis.id}
-                  className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
+                  className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:bg-gray-50"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium text-lg">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-2">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                      <span className="font-medium text-base sm:text-lg">
                         {analysis.uniprot_id}
                       </span>
                       <span
@@ -363,13 +373,13 @@ function AnalysisContent() {
                       >
                         {analysis.status === "running" ? "実行中" : "待機中"}
                       </span>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-xs sm:text-sm text-gray-500">
                         {analysis.method}
                       </span>
                     </div>
                     <Link
                       href={`/analysis/result?job_id=${analysis.id}`}
-                      className="text-blue-600 hover:underline text-sm"
+                      className="text-blue-600 hover:underline text-xs sm:text-sm self-start sm:self-auto"
                     >
                       詳細を見る →
                     </Link>
@@ -381,10 +391,7 @@ function AnalysisContent() {
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm text-gray-600">進捗</span>
                           <span className="text-sm font-medium text-gray-700">
-                            {Math.min(
-                              Math.max(analysis.progress, 0),
-                              100
-                            )}%
+                            {Math.min(Math.max(analysis.progress, 0), 100)}%
                           </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-3">
@@ -400,9 +407,8 @@ function AnalysisContent() {
                         </div>
                       </div>
                     )}
-                  <div className="mt-2 text-xs text-gray-500">
-                    作成日時:{" "}
-                    {new Date(analysis.created_at).toLocaleString()}
+                  <div className="mt-2 text-xs text-gray-500 break-words">
+                    作成日時: {new Date(analysis.created_at).toLocaleString()}
                   </div>
                 </div>
               ))}
@@ -424,15 +430,17 @@ function AnalysisContent() {
 
 export default function AnalysisPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen p-8 bg-gray-50">
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-white p-8 rounded-lg shadow-md">
-            <p>読み込み中...</p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-white p-4 sm:p-6 md:p-8 rounded-lg shadow-md">
+              <p>読み込み中...</p>
+            </div>
           </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <AnalysisContent />
     </Suspense>
   );

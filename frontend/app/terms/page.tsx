@@ -2,30 +2,36 @@ import Link from "next/link";
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen p-8 bg-gray-50">
-      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-8">
-        <div className="mb-6">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
+      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-4 sm:p-6 md:p-8">
+        <div className="mb-4 sm:mb-6">
           <Link
             href="/analysis"
-            className="inline-flex items-center text-blue-600 hover:underline mb-4"
+            className="inline-flex items-center text-blue-600 hover:underline mb-4 text-sm sm:text-base"
           >
             <span className="mr-1">←</span>
             ホームに戻る
           </Link>
         </div>
 
-        <h1 className="text-3xl font-bold mb-6">利用規約</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">
+          利用規約
+        </h1>
 
-        <section className="mb-6">
-          <h2 className="text-2xl font-semibold mb-3">第1条（適用）</h2>
+        <section className="mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-2 sm:mb-3">
+            第1条（適用）
+          </h2>
           <p className="text-gray-700 leading-relaxed">
-            本利用規約（以下「本規約」といいます。）は、DSA Analysisサービス（以下「本サービス」といいます。）の利用条件を定めるものです。
+            本利用規約（以下「本規約」といいます。）は、DSAサービス（以下「本サービス」といいます。）の利用条件を定めるものです。
             登録ユーザーの皆さま（以下「ユーザー」といいます。）には、本規約に従って、本サービスをご利用いただきます。
           </p>
         </section>
 
-        <section className="mb-6">
-          <h2 className="text-2xl font-semibold mb-3">第2条（Cookieの使用）</h2>
+        <section className="mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-2 sm:mb-3">
+            第2条（Cookieの使用）
+          </h2>
           <p className="text-gray-700 leading-relaxed mb-3">
             本サービスでは、以下の目的でCookieを使用します：
           </p>
@@ -39,8 +45,10 @@ export default function TermsPage() {
           </p>
         </section>
 
-        <section className="mb-6">
-          <h2 className="text-2xl font-semibold mb-3">第3条（禁止事項）</h2>
+        <section className="mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-2 sm:mb-3">
+            第3条（禁止事項）
+          </h2>
           <p className="text-gray-700 leading-relaxed">
             ユーザーは、本サービスの利用にあたり、以下の行為をしてはなりません。
           </p>
@@ -59,8 +67,10 @@ export default function TermsPage() {
           </ul>
         </section>
 
-        <section className="mb-6">
-          <h2 className="text-2xl font-semibold mb-3">第4条（本サービスの提供の停止等）</h2>
+        <section className="mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-2 sm:mb-3">
+            第4条（本サービスの提供の停止等）
+          </h2>
           <p className="text-gray-700 leading-relaxed">
             当方は、以下のいずれかの事由があると判断した場合、ユーザーに事前に通知することなく本サービスの全部または一部の提供を停止または中断することができるものとします。
           </p>
@@ -76,22 +86,28 @@ export default function TermsPage() {
           </ul>
         </section>
 
-        <section className="mb-6">
-          <h2 className="text-2xl font-semibold mb-3">第5条（保証の否認および免責）</h2>
+        <section className="mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-2 sm:mb-3">
+            第5条（保証の否認および免責）
+          </h2>
           <p className="text-gray-700 leading-relaxed">
             当方は、本サービスに事実上または法律上の瑕疵（安全性、信頼性、正確性、完全性、有効性、特定の目的への適合性、セキュリティなどに関する欠陥、エラーやバグ、権利侵害などを含みます。）がないことを明示的にも黙示的にも保証しておりません。
           </p>
         </section>
 
-        <section className="mb-6">
-          <h2 className="text-2xl font-semibold mb-3">第6条（サービス内容の変更等）</h2>
+        <section className="mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-2 sm:mb-3">
+            第6条（サービス内容の変更等）
+          </h2>
           <p className="text-gray-700 leading-relaxed">
             当方は、ユーザーへの事前の告知をもって、本サービスの内容を変更、追加または廃止することがあります。
           </p>
         </section>
 
-        <section className="mb-6">
-          <h2 className="text-2xl font-semibold mb-3">第7条（利用規約の変更）</h2>
+        <section className="mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-2 sm:mb-3">
+            第7条（利用規約の変更）
+          </h2>
           <p className="text-gray-700 leading-relaxed">
             当方は以下の場合には、ユーザーの個別の同意を要せず、本規約を変更することができるものとします。
           </p>
@@ -103,8 +119,10 @@ export default function TermsPage() {
           </ul>
         </section>
 
-        <section className="mb-6">
-          <h2 className="text-2xl font-semibold mb-3">第8条（個人情報の取扱い）</h2>
+        <section className="mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-2 sm:mb-3">
+            第8条（個人情報の取扱い）
+          </h2>
           <p className="text-gray-700 leading-relaxed">
             当方は、本サービスの利用によって取得する個人情報については、当方「
             <Link href="/privacy" className="text-blue-600 hover:underline">
@@ -114,18 +132,19 @@ export default function TermsPage() {
           </p>
         </section>
 
-        <section className="mb-6">
-          <h2 className="text-2xl font-semibold mb-3">第9条（準拠法・裁判管轄）</h2>
+        <section className="mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-2 sm:mb-3">
+            第9条（準拠法・裁判管轄）
+          </h2>
           <p className="text-gray-700 leading-relaxed">
             本規約の解釈にあたっては、日本法を準拠法とします。本サービスに関して紛争が生じた場合には、当方の本店所在地を管轄する裁判所を専属的合意管轄とします。
           </p>
         </section>
 
         <div className="mt-8 pt-6 border-t">
-          <p className="text-sm text-gray-500">制定日: 2024年12月26日</p>
+          <p className="text-sm text-gray-500">制定日: 2025年12月26日</p>
         </div>
       </div>
     </div>
   );
 }
-

@@ -29,3 +29,4 @@ CREATE INDEX IF NOT EXISTS idx_analyses_method ON analyses(method);
 CREATE INDEX IF NOT EXISTS idx_analyses_created_at ON analyses(created_at);
 
 
+

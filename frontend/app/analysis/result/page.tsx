@@ -508,7 +508,7 @@ function ResultContent() {
                 </div>
                 {selectedPdbId && jobId && (
                   <div className="w-full">
-                    <MolstarViewer pdbId={selectedPdbId} className="w-full" />
+                    <MolstarViewer key={selectedPdbId} pdbId={selectedPdbId} className="w-full" />
                   </div>
                 )}
               </div>

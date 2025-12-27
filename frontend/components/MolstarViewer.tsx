@@ -25,15 +25,38 @@ export default function MolstarViewer({
 
     const load = async () => {
       try {
+        if (!containerRef.current) return;
+
+        // 既存のviewerがある場合は、新しいPDBをロードするだけ
+        if (viewerRef.current) {
+          try {
+            await viewerRef.current.loadPdb(pdbId);
+            if (!cancelled) {
+              setError(null);
+            }
+            return;
+          } catch (e) {
+            // ロードに失敗した場合は、新しいviewerを作成
+            console.warn("Failed to load PDB in existing viewer, creating new viewer", e);
+            if (viewerRef.current?.plugin?.destroy) {
+              try {
+                viewerRef.current.plugin.destroy();
+              } catch (destroyError) {
+                console.error("Mol* destroy error", destroyError);
+              }
+            }
+            viewerRef.current = null;
+            // コンテナを完全にクリア
+            if (containerRef.current) {
+              containerRef.current.innerHTML = "";
+            }
+          }
+        }
+
         // Viewer 実装を ESM ビルドから取得（背景画像を含む正式なパスを利用）
         const { Viewer } = await import("molstar/lib/apps/viewer/app");
 
         if (!containerRef.current) return;
-
-        // 既存インスタンスを破棄
-        if (viewerRef.current?.plugin?.destroy) {
-          viewerRef.current.plugin.destroy();
-        }
 
         const viewer = await Viewer.create(containerRef.current, {
           layoutIsExpanded: false,
@@ -75,6 +98,9 @@ export default function MolstarViewer({
 
     return () => {
       cancelled = true;
+      // クリーンアップはコンポーネントのアンマウント時のみ実行
+      // pdbIdが変わるだけの場合は、viewerを保持する
+      // コンポーネントが完全にアンマウントされる時だけ破棄
       if (viewerRef.current?.plugin?.destroy) {
         try {
           viewerRef.current.plugin.destroy();

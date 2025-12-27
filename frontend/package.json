@@ -10,13 +10,15 @@
   },
   "dependencies": {
     "@types/js-cookie": "^3.0.6",
+    "clsx": "^2.1.1",
     "fp-ts": "^1.19.3",
     "js-cookie": "^3.0.5",
     "molstar": "^3.7.0",
     "next": "^16.1.1",
     "react": "^19.2.3",
     "react-cookie-consent": "^9.0.0",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",

@@ -58,7 +58,8 @@ class UniprotData:
                 x.append(value)
                 if value == "NMR":
                     x.append(None)
-            if x[0] == method:
+            # methodが空文字列の場合は全てのメソッドを含める
+            if method == "" or x[0] == method:
                 pdbid.append(dbReference.attrib["id"])
                 data.append(x)
         self.pdbdata = pd.DataFrame(

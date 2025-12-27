@@ -59,6 +59,17 @@ go run main.go
 - `PYTHON_PATH`: Python 実行パス (デフォルト: python3)
 - `MAX_CONCURRENT`: 最大並列実行数 (デフォルト: 2)
 
+**永続化（Phase 1以降）:**
+
+- `DATABASE_URL`: PostgreSQL接続文字列 (例: `postgres://user:pass@localhost:5432/dsa?sslmode=disable`)
+- `R2_ACCOUNT_ID`: Cloudflare R2 アカウントID
+- `R2_ACCESS_KEY_ID`: Cloudflare R2 アクセスキーID
+- `R2_SECRET_ACCESS_KEY`: Cloudflare R2 シークレットアクセスキー
+- `R2_BUCKET`: Cloudflare R2 バケット名
+- `R2_ENDPOINT`: Cloudflare R2 エンドポイント (例: `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`)
+- `R2_PUBLIC_BASE_URL`: 公開配信用のベースURL (任意)
+- `RESULTS_LOCAL_DIR`: ローカル出力先 (既存のSTORAGE_DIRと併用可)
+
 #### Python
 
 ```bash

@@ -4,15 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
+    "@types/js-cookie": "^3.0.6",
     "fp-ts": "^1.19.3",
+    "js-cookie": "^3.0.5",
     "molstar": "^3.7.0",
     "next": "^16.1.1",
     "react": "^19.2.3",
+    "react-cookie-consent": "^9.0.0",
     "react-dom": "^19.2.3"
   },
   "devDependencies": {

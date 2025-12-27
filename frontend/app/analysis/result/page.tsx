@@ -73,7 +73,7 @@ function ResultContent() {
             );
           }
         } else if (jobData.status === "failed") {
-          setError(jobData.error_message || "Analysis failed");
+          setError(jobData.error_message || "解析失敗");
         }
       } catch (err) {
         setError(
@@ -87,11 +87,72 @@ function ResultContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen p-8 bg-gray-50">
+      <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
         <div className="max-w-6xl mx-auto">
-          <div className="bg-red-100 border border-red-400 text-red-700 p-4 rounded">
-            <p className="font-bold">Error:</p>
-            <p>{error}</p>
+          <div className="bg-red-50 border-2 border-red-300 text-red-800 p-4 sm:p-6 rounded-lg shadow-md">
+            <div className="flex items-center mb-4">
+              <svg
+                className="w-6 h-6 mr-2 text-red-600 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <h2 className="text-lg sm:text-xl font-bold text-red-900">
+                エラー
+              </h2>
+            </div>
+            <div className="text-sm sm:text-base leading-relaxed space-y-2">
+              {error.split("\n").map((line, index) => {
+                const trimmed = line.trim();
+                if (!trimmed) return <br key={index} />;
+
+                // 【】で囲まれたセクションタイトル
+                if (trimmed.match(/^【.*】/)) {
+                  return (
+                    <div
+                      key={index}
+                      className="font-bold text-base text-red-900 mt-4 mb-2 first:mt-0"
+                    >
+                      {trimmed}
+                    </div>
+                  );
+                }
+                // 番号付きリスト（1. で始まる）
+                else if (trimmed.match(/^\d+\.\s/)) {
+                  return (
+                    <div key={index} className="ml-6 mb-1">
+                      <span className="font-semibold text-red-900">
+                        {trimmed.match(/^\d+\./)?.[0]}
+                      </span>
+                      <span>{trimmed.replace(/^\d+\.\s/, " ")}</span>
+                    </div>
+                  );
+                }
+                // インデントされた項目（  - で始まる）
+                else if (trimmed.startsWith("  - ")) {
+                  return (
+                    <div key={index} className="ml-8 mb-1 text-red-700">
+                      {trimmed}
+                    </div>
+                  );
+                }
+                // 通常のテキスト
+                else {
+                  return (
+                    <div key={index} className="mb-1 text-red-800">
+                      {trimmed}
+                    </div>
+                  );
+                }
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -100,9 +161,9 @@ function ResultContent() {
 
   if (!job || !result) {
     return (
-      <div className="min-h-screen p-8 bg-gray-50">
+      <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
         <div className="max-w-6xl mx-auto">
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
             <p>Loading...</p>
           </div>
         </div>
@@ -115,30 +176,53 @@ function ResultContent() {
   const scoreSummary = result.score_summary || {};
 
   return (
-    <div className="min-h-screen p-8 bg-gray-50">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-4">
+        <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
           <Link
             href="/analysis"
-            className="inline-flex items-center text-blue-600 hover:underline"
+            className="inline-flex items-center text-blue-600 hover:underline text-sm sm:text-base"
           >
             <span className="mr-1">←</span>
             Home に戻る
           </Link>
+          {jobId && (
+            <button
+              onClick={() => {
+                const currentIds =
+                  new URLSearchParams(window.location.search).get("ids") || "";
+                const ids = currentIds
+                  ? currentIds.split(",").filter(Boolean)
+                  : [];
+                if (!ids.includes(jobId)) {
+                  ids.push(jobId);
+                }
+                window.location.href = `/analysis/compare?ids=${ids.join(",")}`;
+              }}
+              className="bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-purple-700 text-sm sm:text-base w-full sm:w-auto"
+            >
+              Compareに追加 / Add to Compare
+            </button>
+          )}
         </div>
-        <h1 className="text-3xl font-bold mb-2">
-          DSA 解析結果 - {stats.uniprot_id || result.uniprot_id}
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">
+          DSA (Distance-based Structural Analysis) 解析結果 -{" "}
+          {stats.uniprot_id || result.uniprot_id}
         </h1>
-        <p className="text-sm text-gray-600 mb-8">ジョブ ID: {jobId}</p>
+        <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-8 break-words">
+          ジョブ ID: {jobId}
+        </p>
 
-        <div className="space-y-8">
+        <div className="space-y-4 sm:space-y-8">
           {/* 解析概要 */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               {/* 解析概要 Overview */}
-              <div className="bg-white border border-gray-200 rounded-lg p-6">
-                <h2 className="text-2xl font-bold mb-4">解析概要 Overview</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+              <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
+                  解析概要 Overview
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                   <div>
                     <p className="text-sm text-gray-600">UniProt ID</p>
                     <p className="text-lg font-semibold">
@@ -270,11 +354,11 @@ function ResultContent() {
 
               {/* Cisペプチド結合解析結果 */}
               {cisAnalysis.cis_num !== undefined && cisAnalysis.cis_num > 0 && (
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h2 className="text-2xl font-bold mb-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+                  <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
                     Cisペプチド結合解析結果
                   </h2>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                     <div>
                       <p className="text-sm text-gray-600">
                         Cisペア数 (Cis Pair Count)
@@ -361,14 +445,16 @@ function ResultContent() {
 
           {/* ヒートマップ */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">DSA Score Heatmap</h2>
+            <div className="p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
+                DSA Score Heatmap
+              </h2>
               {job.result?.heatmap_url && (
                 <div className="flex justify-center">
                   <img
                     src={getResultUrl(jobId!, "heatmap.png")}
                     alt="DSA Score Heatmap"
-                    className="w-full md:w-1/2 max-w-2xl h-auto rounded-lg shadow-md"
+                    className="w-full sm:w-3/4 md:w-1/2 max-w-2xl h-auto rounded-lg shadow-md"
                   />
                 </div>
               )}
@@ -377,14 +463,16 @@ function ResultContent() {
 
           {/* Distance-Score Plot */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Distance-Score Plot</h2>
+            <div className="p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
+                Distance-Score Plot
+              </h2>
               {job.result?.scatter_url && (
                 <div className="flex justify-center">
                   <img
                     src={getResultUrl(jobId!, "dist_score.png")}
                     alt="Distance vs Score"
-                    className="w-full md:w-1/2 max-w-2xl h-auto rounded-lg shadow-md"
+                    className="w-full sm:w-3/4 md:w-1/2 max-w-2xl h-auto rounded-lg shadow-md"
                   />
                 </div>
               )}
@@ -394,11 +482,11 @@ function ResultContent() {
           {/* 3D Structure Viewer */}
           {pdbList.length > 0 && (
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="p-6">
-                <h2 className="text-2xl font-bold mb-4">
+              <div className="p-4 sm:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
                   3D Structure Viewer (Mol*)
                 </h2>
-                <div className="mb-4">
+                <div className="mb-3 sm:mb-4">
                   <label
                     htmlFor="pdb-select"
                     className="block text-sm font-medium text-gray-700 mb-2"
@@ -409,7 +497,7 @@ function ResultContent() {
                     id="pdb-select"
                     value={selectedPdbId || ""}
                     onChange={(e) => setSelectedPdbId(e.target.value)}
-                    className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full sm:w-1/2 md:w-1/3 px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                   >
                     {pdbList.map((pdbId) => (
                       <option key={pdbId} value={pdbId}>
@@ -420,11 +508,7 @@ function ResultContent() {
                 </div>
                 {selectedPdbId && jobId && (
                   <div className="w-full">
-                    <MolstarViewer
-                      pdbId={selectedPdbId}
-                      pdbUrl={`https://files.rcsb.org/download/${selectedPdbId}.cif`}
-                      className="w-full"
-                    />
+                    <MolstarViewer pdbId={selectedPdbId} className="w-full" />
                   </div>
                 )}
               </div>
@@ -440,9 +524,9 @@ export default function ResultPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen p-8 bg-gray-50">
+        <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
           <div className="max-w-6xl mx-auto">
-            <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
               <p>Loading...</p>
             </div>
           </div>

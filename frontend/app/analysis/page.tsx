@@ -1,111 +1,115 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createJob, getJob, type Job, type JobParams } from "@/lib/api";
+import { useEffect, useState, Suspense, useCallback, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { createJob, type JobParams } from "@/lib/api";
+import {
+  getAnalysis,
+  listAnalyses,
+  type AnalysisSummary,
+} from "@/app/lib/api/analyses";
 
-type TrackedJob = {
-  job: Job;
-  displayProgress: number;
-};
-
-const JOBS_STORAGE_KEY = "dsa-jobs";
-
-export default function AnalysisPage() {
+function AnalysisContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [uniprotId, setUniprotId] = useState("");
   const [params, setParams] = useState<JobParams>({
     sequence_ratio: 0.2,
     min_structures: 5,
-    xray_only: true,
+    method: "X-ray",
     negative_pdbid: "",
     cis_threshold: 3.3,
     proc_cis: true,
   });
-  const [jobs, setJobs] = useState<TrackedJob[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingPrefill, setLoadingPrefill] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [runningAnalyses, setRunningAnalyses] = useState<AnalysisSummary[]>([]);
+  const [loadingAnalyses, setLoadingAnalyses] = useState(false);
 
-  // 初期ロード時に localStorage からジョブ一覧を復元
+  // Prefill機能: URLパラメータから分析IDを取得してフォームを初期化
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = window.localStorage.getItem(JOBS_STORAGE_KEY);
-      if (!stored) return;
-      const parsed = JSON.parse(stored) as TrackedJob[];
-      if (Array.isArray(parsed)) {
-        setJobs(parsed);
-      }
-    } catch (e) {
-      console.error("Failed to restore jobs from localStorage:", e);
-    }
-  }, []);
-
-  // jobs の最新値を参照するための ref
-  const jobsRef = useRef<TrackedJob[]>([]);
-  useEffect(() => {
-    jobsRef.current = jobs;
-    // 変更のたびに localStorage に保存（ブラウザバック / リロード対策）
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify(jobs));
-      } catch (e) {
-        console.error("Failed to persist jobs to localStorage:", e);
-      }
-    }
-  }, [jobs]);
-
-  // 複数ジョブをまとめてポーリング
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      const current = jobsRef.current;
-      if (current.length === 0) return;
-
-      const updatedJobs: TrackedJob[] = await Promise.all(
-        current.map(async (tracked) => {
-          const currentJob = tracked.job;
-          // 完了または失敗したジョブはそのまま
-          if (currentJob.status === "done" || currentJob.status === "failed") {
-            return tracked;
+    const prefillId = searchParams.get("prefill");
+    if (prefillId && !loadingPrefill) {
+      setLoadingPrefill(true);
+      getAnalysis(prefillId)
+        .then((analysis) => {
+          // UniProt IDを設定
+          if (analysis.summary.uniprot_id) {
+            setUniprotId(analysis.summary.uniprot_id);
           }
 
-          try {
-            const remote = await getJob(currentJob.job_id);
-
-            let displayProgress = tracked.displayProgress;
-            if (typeof remote.progress === "number") {
-              // 実際の進捗が現在表示より大きい場合は追いつかせる
-              displayProgress =
-                remote.progress > displayProgress
-                  ? remote.progress
-                  : displayProgress;
-            }
-
-            if (remote.status === "done") {
-              displayProgress = 100;
-            }
-
-            return {
-              job: remote,
-              displayProgress,
+          // パラメータを設定
+          if (analysis.params) {
+            const newParams: JobParams = {
+              sequence_ratio: analysis.params.sequence_ratio ?? 0.2,
+              min_structures: analysis.params.min_structures ?? 5,
+              method: analysis.params.method || "X-ray",
+              negative_pdbid: analysis.params.negative_pdb_ids?.join(",") ?? "",
+              cis_threshold: analysis.params.cis_threshold ?? 3.3,
+              proc_cis: analysis.params.proc_cis ?? true,
             };
-          } catch (err) {
-            console.error("Failed to fetch job status:", err);
-            return tracked;
+            setParams(newParams);
           }
         })
-      );
+        .catch((err) => {
+          console.error("Failed to load analysis for prefill:", err);
+          setError("Failed to load analysis parameters");
+        })
+        .finally(() => {
+          setLoadingPrefill(false);
+        });
+    }
+  }, [searchParams, loadingPrefill]);
 
-      jobsRef.current = updatedJobs;
-      setJobs(updatedJobs);
-    }, 2000);
+  // 進行中の解析を取得
+  const fetchRunningAnalyses = useCallback(async () => {
+    setLoadingAnalyses(true);
+    try {
+      const data = await listAnalyses({ limit: 50 });
+      const running = data.filter(
+        (a) => a.status === "queued" || a.status === "running"
+      );
+      setRunningAnalyses(running);
+    } catch (err) {
+      console.error("Failed to fetch running analyses:", err);
+    } finally {
+      setLoadingAnalyses(false);
+    }
+  }, []);
+
+  // 初回読み込み時とジョブ作成後に実行中の解析を取得
+  useEffect(() => {
+    fetchRunningAnalyses();
+  }, [fetchRunningAnalyses]);
+
+  // 進行中のジョブのIDリストをメモ化
+  const runningJobIds = useMemo(
+    () =>
+      runningAnalyses
+        .filter((a) => a.status === "queued" || a.status === "running")
+        .map((a) => a.id)
+        .join(","),
+    [runningAnalyses]
+  );
+
+  // 進行中のジョブをポーリング
+  useEffect(() => {
+    if (!runningJobIds) return;
+
+    const interval = setInterval(() => {
+      fetchRunningAnalyses();
+    }, 2000); // 2秒ごとに更新
 
     return () => clearInterval(interval);
-  }, []);
+  }, [runningJobIds, fetchRunningAnalyses]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
     setIsSubmitting(true);
 
     try {
@@ -120,7 +124,7 @@ export default function AnalysisPage() {
       }
 
       // すべてのIDを検証しつつ、ジョブをそれぞれ作成
-      const createdJobs: TrackedJob[] = [];
+      const createdJobIds: string[] = [];
 
       for (const rawId of ids) {
         const id = rawId.toUpperCase();
@@ -133,23 +137,17 @@ export default function AnalysisPage() {
         }
 
         const result = await createJob(id, params);
-
-        const initialJob: Job = {
-          job_id: result.job_id,
-          status: result.status as Job["status"],
-          progress: 0,
-          message: `Job queued for ${id}`,
-          uniprot_id: id,
-        };
-
-        createdJobs.push({
-          job: initialJob,
-          displayProgress: 0,
-        });
+        createdJobIds.push(result.job_id);
       }
 
-      if (createdJobs.length > 0) {
-        setJobs((prev) => [...prev, ...createdJobs]);
+      if (createdJobIds.length > 0) {
+        setSuccessMessage(
+          `${createdJobIds.length}件の解析ジョブを作成しました。`
+        );
+        // フォームをリセット
+        setUniprotId("");
+        // 進行中の解析を再取得
+        await fetchRunningAnalyses();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create job");
@@ -159,15 +157,25 @@ export default function AnalysisPage() {
   };
 
   return (
-    <div className="min-h-screen p-8 bg-gray-50">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">DSA Analysis</h1>
+        <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold">
+            DSA (Distance Scoring Analysis)
+          </h1>
+          <Link
+            href="/analysis/history"
+            className="text-blue-600 hover:underline font-medium text-sm sm:text-base"
+          >
+            解析履歴 / History →
+          </Link>
+        </div>
 
         <form
           onSubmit={handleSubmit}
-          className="bg-white p-8 rounded-lg shadow-md mb-8"
+          className="bg-white p-4 sm:p-6 md:p-8 rounded-lg shadow-md mb-6 sm:mb-8"
         >
-          <div className="grid grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
             {/* 左列 */}
             <div className="space-y-4">
               <div>
@@ -193,22 +201,27 @@ export default function AnalysisPage() {
                   htmlFor="method"
                   className="block text-sm font-medium mb-2"
                 >
-                  Method (PDB filter)
+                  構造決定手法 (Method)
                 </label>
                 <select
                   id="method"
-                  value={params.xray_only ? "X-ray" : "all"}
+                  value={params.method || "X-ray"}
                   onChange={(e) =>
                     setParams({
                       ...params,
-                      xray_only: e.target.value === "X-ray",
+                      method: e.target.value as "X-ray" | "NMR" | "EM" | "all",
                     })
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="X-ray">X-ray</option>
-                  <option value="all">All</option>
+                  <option value="X-ray">X-ray結晶構造解析</option>
+                  <option value="NMR">NMR（核磁気共鳴）</option>
+                  <option value="EM">電子顕微鏡（EM）</option>
+                  <option value="all">全て (X-ray, NMR, 電子顕微鏡)</option>
                 </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  構造決定手法を選択してください。「全て」を選択すると、X-ray、NMR、電子顕微鏡の全てのデータを使用して解析します。
+                </p>
               </div>
 
               <div>
@@ -290,8 +303,10 @@ export default function AnalysisPage() {
           </div>
 
           {/* オプションセクション */}
-          <div className="mb-6">
-            <h3 className="text-lg font-medium mb-3">オプション</h3>
+          <div className="mb-4 sm:mb-6">
+            <h3 className="text-base sm:text-lg font-medium mb-2 sm:mb-3">
+              オプション
+            </h3>
             <div className="space-y-2">
               <label className="flex items-center">
                 <input
@@ -322,6 +337,12 @@ export default function AnalysisPage() {
             </div>
           )}
 
+          {successMessage && (
+            <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+              {successMessage}
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={isSubmitting}
@@ -331,68 +352,161 @@ export default function AnalysisPage() {
           </button>
         </form>
 
-        {/* 複数ジョブのステータス一覧 */}
-        {jobs.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold">ジョブ一覧 / Job Status</h2>
-            {jobs.map((tracked) => {
-              const j = tracked.job;
-              return (
+        {/* 進行中のタスク */}
+        {runningAnalyses.length > 0 && (
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+            <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">
+              進行中の解析
+            </h2>
+            <div className="space-y-3 sm:space-y-4">
+              {runningAnalyses.map((analysis) => (
                 <div
-                  key={j.job_id}
-                  className="bg-white p-6 rounded-lg shadow-md"
+                  key={analysis.id}
+                  className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:bg-gray-50"
                 >
-                  <div className="mb-2">
-                    <p className="text-sm text-gray-600">
-                      UniProt ID: {j.uniprot_id || "-"}
-                    </p>
-                    <p className="text-xs text-gray-500">Job ID: {j.job_id}</p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Status: {j.status}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Message: {j.message || "Processing..."}
-                    </p>
-                  </div>
-
-                  <div className="mb-2">
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div
-                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                        style={{ width: `${tracked.displayProgress}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {Math.round(tracked.displayProgress)}%
-                    </p>
-                  </div>
-
-                  {j.status === "failed" && (
-                    <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded mb-2">
-                      <p className="font-bold">Error:</p>
-                      <p>{j.error_message || "Analysis failed"}</p>
-                    </div>
-                  )}
-
-                  {j.status === "done" && (
-                    <div className="p-3 bg-green-100 border border-green-400 text-green-700 rounded flex items-center justify-between">
-                      <p>Analysis completed successfully!</p>
-                      <button
-                        onClick={() =>
-                          router.push(`/analysis/result?job_id=${j.job_id}`)
-                        }
-                        className="ml-4 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700"
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-2">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                      <span className="font-medium text-base sm:text-lg">
+                        {analysis.uniprot_id}
+                      </span>
+                      <span
+                        className={`px-2 py-1 rounded text-xs ${
+                          analysis.status === "running"
+                            ? "bg-blue-100 text-blue-800"
+                            : analysis.status === "failed"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
                       >
-                        View Results
-                      </button>
+                        {analysis.status === "running"
+                          ? "実行中"
+                          : analysis.status === "failed"
+                          ? "失敗"
+                          : "待機中"}
+                      </span>
+                      <span className="text-xs sm:text-sm text-gray-500">
+                        {analysis.method}
+                      </span>
+                    </div>
+                    <Link
+                      href={`/analysis/result?job_id=${analysis.id}`}
+                      className="text-blue-600 hover:underline text-xs sm:text-sm self-start sm:self-auto"
+                    >
+                      詳細を見る →
+                    </Link>
+                  </div>
+                  {analysis.status === "failed" && analysis.error_message && (
+                    <div className="mt-2 p-3 bg-red-50 border border-red-300 rounded-lg text-xs sm:text-sm text-red-800">
+                      <div className="flex items-start mb-2">
+                        <svg
+                          className="w-4 h-4 mr-1.5 mt-0.5 text-red-600 flex-shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <strong className="text-red-900">エラー:</strong>
+                      </div>
+                      <div className="ml-5 whitespace-pre-line leading-relaxed">
+                        {analysis.error_message.split("\n").map((line, i) => {
+                          const trimmed = line.trim();
+                          if (trimmed.match(/^【.*】/)) {
+                            return (
+                              <div
+                                key={i}
+                                className="font-bold text-red-900 mt-2 mb-1 first:mt-0"
+                              >
+                                {trimmed}
+                              </div>
+                            );
+                          } else if (trimmed.match(/^\d+\.\s/)) {
+                            return (
+                              <div key={i} className="ml-4 mb-1">
+                                {trimmed}
+                              </div>
+                            );
+                          } else if (trimmed.startsWith("  - ")) {
+                            return (
+                              <div key={i} className="ml-6 mb-0.5">
+                                {trimmed}
+                              </div>
+                            );
+                          } else if (trimmed !== "") {
+                            return (
+                              <div key={i} className="mb-1">
+                                {trimmed}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })}
+                      </div>
                     </div>
                   )}
+                  {(analysis.status === "queued" ||
+                    analysis.status === "running") &&
+                    analysis.progress !== undefined && (
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm text-gray-600">進捗</span>
+                          <span className="text-sm font-medium text-gray-700">
+                            {Math.min(Math.max(analysis.progress, 0), 100)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div
+                            className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${Math.min(
+                                Math.max(analysis.progress, 0),
+                                100
+                              )}%`,
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+                  <div className="mt-2 text-xs text-gray-500 break-words">
+                    作成日時: {new Date(analysis.created_at).toLocaleString()}
+                  </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
+            <div className="mt-4 pt-4 border-t">
+              <Link
+                href="/analysis/history"
+                className="text-blue-600 hover:underline text-sm"
+              >
+                すべての解析履歴を見る →
+              </Link>
+            </div>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+export default function AnalysisPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-white p-4 sm:p-6 md:p-8 rounded-lg shadow-md">
+              <p>読み込み中...</p>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <AnalysisContent />
+    </Suspense>
   );
 }

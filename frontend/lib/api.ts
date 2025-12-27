@@ -3,7 +3,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export interface JobParams {
   sequence_ratio?: number;
   min_structures?: number;
-  xray_only?: boolean;
+  method?: "X-ray" | "NMR" | "EM" | "all";
+  xray_only?: boolean; // 後方互換性のため残す
   negative_pdbid?: string;
   cis_threshold?: number;
   proc_cis?: boolean;

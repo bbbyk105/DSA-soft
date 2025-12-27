@@ -7,6 +7,8 @@ const nextConfig = {
   // 開発時の React.StrictMode による useEffect の二重実行を無効化し、
   // Mol* 内部での createRoot 警告を抑制する（必要に応じて有効化してもよい）
   reactStrictMode: false,
+  // Next.js 16ではTurbopackがデフォルトのため、webpack設定がある場合はturbopack設定も必要
+  turbopack: {},
   webpack: (config, { isServer }) => {
     // ブラウザバンドルで Node.js 組み込みやネイティブモジュールを解決しないようにする
     if (!isServer) {

@@ -8,3 +8,6 @@ ALTER TABLE analyses ADD COLUMN IF NOT EXISTS session_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_analyses_session_id ON analyses(session_id, created_at DESC);
 
 
+
+
+

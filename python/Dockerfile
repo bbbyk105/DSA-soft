@@ -9,4 +9,5 @@ COPY . .
 
 ENV PYTHONPATH=/app
 
-CMD ["python", "-m", "dsa_cli"]
+# コンテナを起動し続ける（バックエンドから呼び出されるまで待機）
+CMD ["tail", "-f", "/dev/null"]

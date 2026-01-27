@@ -19,7 +19,7 @@ export default function Home() {
             DSA
           </h1>
           <p className="text-lg sm:text-xl text-gray-600 mb-1">
-            Distance-based Structural Analysis
+            Distance Scoring Analysis
           </p>
           <p className="text-sm sm:text-base text-gray-500 mb-4">
             タンパク質構造の距離スコアリング解析
@@ -34,7 +34,7 @@ export default function Home() {
           <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">
             このツールについて
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             <Card>
               <CardHeader>
                 <CardTitle>UniProt IDから解析</CardTitle>
@@ -67,6 +67,29 @@ export default function Home() {
                 </ul>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>結果の共有</CardTitle>
+                <CardDescription>
+                  解析結果や比較結果をリンクで共有できます。
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="list-disc list-inside space-y-2 text-sm text-gray-600">
+                  <li>解析結果ページのURLをコピーして共有</li>
+                  <li>複数解析の比較結果も共有可能</li>
+                  <li>共有されたリンクから直接結果を確認可能</li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* 注意事項 */}
+          <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>注意:</strong> 解析結果は最大100件まで保存されます。100件を超える場合、最も古い解析結果から自動的に削除されます。
+            </p>
           </div>
         </div>
 

@@ -36,7 +36,7 @@ function ResultContent() {
 
         if (jobData.status === "done" && jobData.result) {
           const resultResponse = await fetch(
-            getResultUrl(jobId, "result.json")
+            getResultUrl(jobId, "result.json"),
           );
           if (resultResponse.ok) {
             try {
@@ -67,12 +67,12 @@ function ResultContent() {
                   parseError instanceof Error
                     ? parseError.message
                     : "Unknown error"
-                }`
+                }`,
               );
             }
           } else {
             setError(
-              `Failed to fetch result: ${resultResponse.status} ${resultResponse.statusText}`
+              `Failed to fetch result: ${resultResponse.status} ${resultResponse.statusText}`,
             );
           }
         } else if (jobData.status === "failed") {
@@ -80,7 +80,7 @@ function ResultContent() {
         }
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Failed to fetch results"
+          err instanceof Error ? err.message : "Failed to fetch results",
         );
       }
     };
@@ -201,7 +201,9 @@ function ResultContent() {
   const exportCSV = () => {
     if (!result || !jobId) return;
     const csvContent = getCSVContent();
-    const dataBlob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const dataBlob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement("a");
     link.href = url;
@@ -215,10 +217,10 @@ function ResultContent() {
   const getCSVContent = (): string => {
     if (!result || !jobId) return "";
     const rows: string[][] = [];
-    
+
     // ヘッダー
     rows.push(["項目", "値"]);
-    
+
     // 基本情報
     rows.push(["UniProt ID", stats.uniprot_id || result.uniprot_id || ""]);
     rows.push(["エントリ数", stats.entries?.toString() || ""]);
@@ -229,34 +231,46 @@ function ResultContent() {
     rows.push(["UMF", stats.umf?.toString() || ""]);
     rows.push(["平均スコア", scoreSummary.mean_score?.toFixed(2) || ""]);
     rows.push(["標準偏差", scoreSummary.mean_std?.toFixed(2) || ""]);
-    
+
     // Cis解析
     if (cisAnalysis.cis_num !== undefined) {
       rows.push(["Cisペア数", cisAnalysis.cis_num.toString()]);
-      rows.push(["平均Cis距離 (Å)", cisAnalysis.cis_dist_mean?.toString() || ""]);
-      rows.push(["Cis距離標準偏差 (Å)", cisAnalysis.cis_dist_std?.toString() || ""]);
-      rows.push(["平均Cisスコア", cisAnalysis.cis_score_mean?.toString() || ""]);
+      rows.push([
+        "平均Cis距離 (Å)",
+        cisAnalysis.cis_dist_mean?.toString() || "",
+      ]);
+      rows.push([
+        "Cis距離標準偏差 (Å)",
+        cisAnalysis.cis_dist_std?.toString() || "",
+      ]);
+      rows.push([
+        "平均Cisスコア",
+        cisAnalysis.cis_score_mean?.toString() || "",
+      ]);
       rows.push(["Mix", cisAnalysis.mix?.toString() || ""]);
     }
-    
+
     // PDB IDリスト
     if (stats.pdb_ids && stats.pdb_ids.length > 0) {
       rows.push(["使用PDB ID", stats.pdb_ids.join(", ")]);
     }
-    
+
     // CSV文字列に変換
-    return rows.map(row => 
-      row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(",")
-    ).join("\n");
+    return rows
+      .map((row) =>
+        row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","),
+      )
+      .join("\n");
   };
 
   const downloadImage = async (imageType: "heatmap" | "scatter") => {
     if (!jobId || !job?.result) return;
-    
-    const url = imageType === "heatmap" 
-      ? getResultUrl(jobId, "heatmap.png")
-      : getResultUrl(jobId, "dist_score.png");
-    
+
+    const url =
+      imageType === "heatmap"
+        ? getResultUrl(jobId, "heatmap.png")
+        : getResultUrl(jobId, "dist_score.png");
+
     try {
       const response = await fetch(url);
       const blob = await response.blob();
@@ -274,13 +288,16 @@ function ResultContent() {
     }
   };
 
-  const getImageBlob = async (imageType: "heatmap" | "scatter"): Promise<Blob | null> => {
+  const getImageBlob = async (
+    imageType: "heatmap" | "scatter",
+  ): Promise<Blob | null> => {
     if (!jobId || !job?.result) return null;
-    
-    const url = imageType === "heatmap" 
-      ? getResultUrl(jobId, "heatmap.png")
-      : getResultUrl(jobId, "dist_score.png");
-    
+
+    const url =
+      imageType === "heatmap"
+        ? getResultUrl(jobId, "heatmap.png")
+        : getResultUrl(jobId, "dist_score.png");
+
     try {
       const response = await fetch(url);
       if (!response.ok) return null;
@@ -571,7 +588,8 @@ function ResultContent() {
               <button
                 onClick={() => {
                   const currentIds =
-                    new URLSearchParams(window.location.search).get("ids") || "";
+                    new URLSearchParams(window.location.search).get("ids") ||
+                    "";
                   const ids = currentIds
                     ? currentIds.split(",").filter(Boolean)
                     : [];
@@ -696,7 +714,7 @@ function ResultContent() {
                       <p className="text-sm text-gray-600">Cis/Length(%)</p>
                       <p className="text-lg font-semibold">
                         {((cisAnalysis.cis_num / stats.length) * 100).toFixed(
-                          2
+                          2,
                         )}
                         %
                       </p>
@@ -890,7 +908,11 @@ function ResultContent() {
                 </div>
                 {selectedPdbId && jobId && (
                   <div className="w-full">
-                    <MolstarViewer key={selectedPdbId} pdbId={selectedPdbId} className="w-full" />
+                    <MolstarViewer
+                      key={selectedPdbId}
+                      pdbId={selectedPdbId}
+                      className="w-full"
+                    />
                   </div>
                 )}
               </div>

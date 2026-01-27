@@ -28,8 +28,6 @@ function AnalysisContent() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [runningAnalyses, setRunningAnalyses] = useState<AnalysisSummary[]>([]);
   const [loadingAnalyses, setLoadingAnalyses] = useState(false);
-  // 表示用の進捗値（1%ずつ増やしていく）
-  const [displayProgress, setDisplayProgress] = useState<Record<string, number>>({});
 
   // Prefill機能: URLパラメータから分析IDを取得してフォームを初期化
   useEffect(() => {
@@ -72,7 +70,7 @@ function AnalysisContent() {
     try {
       const data = await listAnalyses({ limit: 50 });
       const running = data.filter(
-        (a) => a.status === "queued" || a.status === "running"
+        (a) => a.status === "queued" || a.status === "running",
       );
       setRunningAnalyses(running);
     } catch (err) {
@@ -94,7 +92,7 @@ function AnalysisContent() {
         .filter((a) => a.status === "queued" || a.status === "running")
         .map((a) => a.id)
         .join(","),
-    [runningAnalyses]
+    [runningAnalyses],
   );
 
   // 進行中のジョブをポーリング
@@ -107,76 +105,6 @@ function AnalysisContent() {
 
     return () => clearInterval(interval);
   }, [runningJobIds, fetchRunningAnalyses]);
-
-  // 1%ずつ進捗を増やすアニメーション
-  useEffect(() => {
-    if (!runningJobIds) {
-      setDisplayProgress({});
-      return;
-    }
-
-    const running = runningAnalyses.filter(
-      (a) => a.status === "queued" || a.status === "running"
-    );
-    
-    if (running.length === 0) {
-      setDisplayProgress({});
-      return;
-    }
-
-    // 初期化：新しい解析を追加
-    setDisplayProgress((prev) => {
-      const updated = { ...prev };
-      let hasChanges = false;
-
-      running.forEach((analysis) => {
-        if (!(analysis.id in updated)) {
-          // 新しい解析の場合は、実際の進捗または5%から開始
-          const actualProgress = Math.min(Math.max(analysis.progress ?? 0, 0), 100);
-          updated[analysis.id] = Math.max(actualProgress, 5);
-          hasChanges = true;
-        }
-      });
-
-      return hasChanges ? updated : prev;
-    });
-
-    // 1%ずつ増やすインターバル
-    const interval = setInterval(() => {
-      setDisplayProgress((prev) => {
-        const currentRunning = runningAnalyses.filter(
-          (a) => a.status === "queued" || a.status === "running"
-        );
-        
-        const updated: Record<string, number> = { ...prev };
-        let hasChanges = false;
-
-        currentRunning.forEach((analysis) => {
-          const actualProgress = Math.min(
-            Math.max(analysis.progress ?? 0, 0),
-            100
-          );
-          const currentDisplay = prev[analysis.id];
-          
-          if (currentDisplay === undefined) {
-            updated[analysis.id] = Math.max(actualProgress, 5);
-            hasChanges = true;
-            return;
-          }
-          
-          // 見た目だけ1%ずつ増やす（実際の進捗に関係なく、99%で止まる）
-          if (currentDisplay < 99) {
-            updated[analysis.id] = currentDisplay + 1;
-            hasChanges = true;
-          }
-        });
-
-        return hasChanges ? updated : prev;
-      });
-    }, 800);
-
-    return () => clearInterval(interval);
-  }, [runningJobIds, runningAnalyses]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,7 +130,7 @@ function AnalysisContent() {
         const id = rawId.toUpperCase();
         if (
           !/^[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}$/.test(
-            id
+            id,
           )
         ) {
           throw new Error(`Invalid UniProt ID format: ${id}`);
@@ -214,7 +142,7 @@ function AnalysisContent() {
 
       if (createdJobIds.length > 0) {
         setSuccessMessage(
-          `${createdJobIds.length}件の解析ジョブを作成しました。`
+          `${createdJobIds.length}件の解析ジョブを作成しました。`,
         );
         // フォームをリセット
         setUniprotId("");
@@ -235,20 +163,12 @@ function AnalysisContent() {
           <h1 className="text-2xl sm:text-3xl font-bold">
             DSA (Distance Scoring Analysis)
           </h1>
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-            <Link
-              href="/"
-              className="text-blue-600 hover:underline font-medium text-sm sm:text-base"
-            >
-              使い方を見る →
-            </Link>
-            <Link
-              href="/analysis/history"
-              className="text-blue-600 hover:underline font-medium text-sm sm:text-base"
-            >
-              解析履歴 / History →
-            </Link>
-          </div>
+          <Link
+            href="/analysis/history"
+            className="text-blue-600 hover:underline font-medium text-sm sm:text-base"
+          >
+            解析履歴 / History →
+          </Link>
         </div>
 
         <form
@@ -259,22 +179,12 @@ function AnalysisContent() {
             {/* 左列 */}
             <div className="space-y-4">
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label
-                    htmlFor="uniprot_id"
-                    className="block text-sm font-medium"
-                  >
-                    UniProt ID(s) (複数の場合はカンマまたはスペース区切り) *
-                  </label>
-                  <a
-                    href="https://www.uniprot.org/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    UniProt IDを調べる →
-                  </a>
-                </div>
+                <label
+                  htmlFor="uniprot_id"
+                  className="block text-sm font-medium mb-2"
+                >
+                  UniProt ID(s) (複数の場合はカンマまたはスペース区切り) *
+                </label>
                 <input
                   type="text"
                   id="uniprot_id"
@@ -464,15 +374,15 @@ function AnalysisContent() {
                           analysis.status === "running"
                             ? "bg-blue-100 text-blue-800"
                             : analysis.status === "failed"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-gray-100 text-gray-800"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-gray-100 text-gray-800"
                         }`}
                       >
                         {analysis.status === "running"
                           ? "実行中"
                           : analysis.status === "failed"
-                          ? "失敗"
-                          : "待機中"}
+                            ? "失敗"
+                            : "待機中"}
                       </span>
                       <span className="text-xs sm:text-sm text-gray-500">
                         {analysis.method}
@@ -540,37 +450,25 @@ function AnalysisContent() {
                     </div>
                   )}
                   {(analysis.status === "queued" ||
-                    analysis.status === "running") && (
+                    analysis.status === "running") &&
+                    analysis.progress !== undefined && (
                       <div className="mt-3">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm text-gray-600">進捗</span>
                           <span className="text-sm font-medium text-gray-700">
-                            {Math.min(
-                              Math.max(displayProgress[analysis.id] ?? analysis.progress ?? 0, 0),
-                              100
-                            )}%
+                            {Math.min(Math.max(analysis.progress, 0), 100)}%
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden relative">
+                        <div className="w-full bg-gray-200 rounded-full h-3">
                           <div
-                            className="h-3 rounded-full transition-all duration-700 ease-out relative overflow-hidden bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500"
+                            className="bg-blue-600 h-3 rounded-full transition-all duration-300"
                             style={{
                               width: `${Math.min(
-                                Math.max(displayProgress[analysis.id] ?? analysis.progress ?? 5, 5),
-                                100
+                                Math.max(analysis.progress, 0),
+                                100,
                               )}%`,
-                              backgroundSize: "200% 100%",
-                              animation: "progress-gradient 3s ease infinite",
                             }}
-                          >
-                            {/* アニメーション効果: シマー */}
-                            <div
-                              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-                              style={{
-                                animation: "shimmer 2s infinite",
-                              }}
-                            ></div>
-                          </div>
+                          ></div>
                         </div>
                       </div>
                     )}

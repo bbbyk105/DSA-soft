@@ -163,12 +163,20 @@ function AnalysisContent() {
           <h1 className="text-2xl sm:text-3xl font-bold">
             DSA (Distance Scoring Analysis)
           </h1>
-          <Link
-            href="/analysis/history"
-            className="text-blue-600 hover:underline font-medium text-sm sm:text-base"
-          >
-            解析履歴 / History →
-          </Link>
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <Link
+              href="/"
+              className="text-blue-600 hover:underline font-medium text-sm sm:text-base"
+            >
+              使い方を見る →
+            </Link>
+            <Link
+              href="/analysis/history"
+              className="text-blue-600 hover:underline font-medium text-sm sm:text-base"
+            >
+              解析履歴 / History →
+            </Link>
+          </div>
         </div>
 
         <form
@@ -179,12 +187,22 @@ function AnalysisContent() {
             {/* 左列 */}
             <div className="space-y-4">
               <div>
-                <label
-                  htmlFor="uniprot_id"
-                  className="block text-sm font-medium mb-2"
-                >
-                  UniProt ID(s) (複数の場合はカンマまたはスペース区切り) *
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label
+                    htmlFor="uniprot_id"
+                    className="block text-sm font-medium"
+                  >
+                    UniProt ID(s) (複数の場合はカンマまたはスペース区切り) *
+                  </label>
+                  <a
+                    href="https://www.uniprot.org/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    UniProt IDを調べる →
+                  </a>
+                </div>
                 <input
                   type="text"
                   id="uniprot_id"

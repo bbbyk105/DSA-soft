@@ -338,7 +338,15 @@ def main():
         print("Analysis completed successfully", file=sys.stderr, flush=True)
 
     except Exception as e:
+        import traceback
         error_msg = str(e)
+        if not error_msg or error_msg == "0":
+            # エラーメッセージが空または"0"の場合、詳細な情報を取得
+            error_msg = f"Analysis failed: {type(e).__name__}"
+            tb_str = traceback.format_exc()
+            # トレースバックから有用な情報を抽出
+            if tb_str:
+                error_msg += f"\n\nTraceback:\n{tb_str}"
         result = {"status": "failed", "error": error_msg, "uniprot_id": args.uniprot}
         with open(out_dir / "result.json", "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, ensure_ascii=False)

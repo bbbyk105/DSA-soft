@@ -11,6 +11,11 @@ services:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - dsa-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dsa_user} -d ${POSTGRES_DB:-dsa}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
@@ -36,8 +41,13 @@ services:
       - ./backend/storage:/app/storage
       - ./python:/app/python
     depends_on:
-      - python-base
-      - postgres
+      python-base:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     networks:
       - dsa-network
 
@@ -48,6 +58,9 @@ services:
     volumes:
       - ./python:/app
       - python-cache:/root/.cache
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     networks:
       - dsa-network
 
@@ -80,3 +93,5 @@ volumes:
 networks:
   dsa-network:
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "true"

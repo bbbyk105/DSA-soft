@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getJob, getResultUrl, type Job } from "@/lib/api";
 import dynamic from "next/dynamic";
+import JSZip from "jszip";
 
 // Mol* Viewerを動的インポート（SSRを無効化）
 const MolstarViewer = dynamic(() => import("@/components/MolstarViewer"), {
@@ -20,6 +21,7 @@ function ResultContent() {
   const [pdbList, setPdbList] = useState<string[]>([]);
   const [selectedPdbId, setSelectedPdbId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   useEffect(() => {
     if (!jobId) {
@@ -176,6 +178,170 @@ function ResultContent() {
   const cisAnalysis = stats.cis_analysis || {};
   const scoreSummary = result.score_summary || {};
 
+  // エクスポート機能
+  const exportJSON = () => {
+    if (!result || !jobId) return;
+    const dataStr = JSON.stringify(result, null, 2);
+    const dataBlob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `dsa_result_${stats.uniprot_id || jobId}_${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const getJSONData = (): string => {
+    if (!result) return "";
+    return JSON.stringify(result, null, 2);
+  };
+
+  const exportCSV = () => {
+    if (!result || !jobId) return;
+    const csvContent = getCSVContent();
+    const dataBlob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `dsa_result_${stats.uniprot_id || jobId}_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const getCSVContent = (): string => {
+    if (!result || !jobId) return "";
+    const rows: string[][] = [];
+    
+    // ヘッダー
+    rows.push(["項目", "値"]);
+    
+    // 基本情報
+    rows.push(["UniProt ID", stats.uniprot_id || result.uniprot_id || ""]);
+    rows.push(["エントリ数", stats.entries?.toString() || ""]);
+    rows.push(["チェーン数", stats.chains?.toString() || ""]);
+    rows.push(["残基数", stats.length?.toString() || ""]);
+    rows.push(["残基カバレッジ (%)", stats.length_percent?.toString() || ""]);
+    rows.push(["分解能 (Å)", stats.resolution?.toString() || ""]);
+    rows.push(["UMF", stats.umf?.toString() || ""]);
+    rows.push(["平均スコア", scoreSummary.mean_score?.toFixed(2) || ""]);
+    rows.push(["標準偏差", scoreSummary.mean_std?.toFixed(2) || ""]);
+    
+    // Cis解析
+    if (cisAnalysis.cis_num !== undefined) {
+      rows.push(["Cisペア数", cisAnalysis.cis_num.toString()]);
+      rows.push(["平均Cis距離 (Å)", cisAnalysis.cis_dist_mean?.toString() || ""]);
+      rows.push(["Cis距離標準偏差 (Å)", cisAnalysis.cis_dist_std?.toString() || ""]);
+      rows.push(["平均Cisスコア", cisAnalysis.cis_score_mean?.toString() || ""]);
+      rows.push(["Mix", cisAnalysis.mix?.toString() || ""]);
+    }
+    
+    // PDB IDリスト
+    if (stats.pdb_ids && stats.pdb_ids.length > 0) {
+      rows.push(["使用PDB ID", stats.pdb_ids.join(", ")]);
+    }
+    
+    // CSV文字列に変換
+    return rows.map(row => 
+      row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(",")
+    ).join("\n");
+  };
+
+  const downloadImage = async (imageType: "heatmap" | "scatter") => {
+    if (!jobId || !job?.result) return;
+    
+    const url = imageType === "heatmap" 
+      ? getResultUrl(jobId, "heatmap.png")
+      : getResultUrl(jobId, "dist_score.png");
+    
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const imageUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = imageUrl;
+      link.download = `dsa_${imageType}_${stats.uniprot_id || jobId}_${new Date().toISOString().split("T")[0]}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(imageUrl);
+    } catch (err) {
+      console.error("Failed to download image:", err);
+      alert("画像のダウンロードに失敗しました");
+    }
+  };
+
+  const getImageBlob = async (imageType: "heatmap" | "scatter"): Promise<Blob | null> => {
+    if (!jobId || !job?.result) return null;
+    
+    const url = imageType === "heatmap" 
+      ? getResultUrl(jobId, "heatmap.png")
+      : getResultUrl(jobId, "dist_score.png");
+    
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      return await response.blob();
+    } catch (err) {
+      console.error(`Failed to fetch ${imageType} image:`, err);
+      return null;
+    }
+  };
+
+  const downloadAll = async () => {
+    if (!jobId || !result) return;
+
+    try {
+      const zip = new JSZip();
+      const dateStr = new Date().toISOString().split("T")[0];
+      const baseName = `dsa_result_${stats.uniprot_id || jobId}_${dateStr}`;
+
+      // JSONを追加
+      const jsonData = getJSONData();
+      if (jsonData) {
+        zip.file(`${baseName}.json`, jsonData);
+      }
+
+      // CSVを追加
+      const csvContent = getCSVContent();
+      if (csvContent) {
+        zip.file(`${baseName}.csv`, "\uFEFF" + csvContent);
+      }
+
+      // 画像を追加
+      if (job?.result?.heatmap_url) {
+        const heatmapBlob = await getImageBlob("heatmap");
+        if (heatmapBlob) {
+          zip.file(`${baseName}_heatmap.png`, heatmapBlob);
+        }
+      }
+
+      if (job?.result?.scatter_url) {
+        const scatterBlob = await getImageBlob("scatter");
+        if (scatterBlob) {
+          zip.file(`${baseName}_scatter.png`, scatterBlob);
+        }
+      }
+
+      // ZIPファイルを生成してダウンロード
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${baseName}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to create ZIP file:", err);
+      alert("ZIPファイルの作成に失敗しました");
+    }
+  };
+
   return (
     <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
       <div className="max-w-6xl mx-auto">
@@ -251,6 +417,155 @@ function ResultContent() {
                   </>
                 )}
               </button>
+            )}
+            {jobId && result && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-blue-700 text-sm sm:text-base flex items-center gap-2"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                  エクスポート
+                </button>
+                {showExportMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowExportMenu(false)}
+                    ></div>
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                      <div className="py-1">
+                        <button
+                          onClick={async () => {
+                            await downloadAll();
+                            setShowExportMenu(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 flex items-center gap-2 border-b border-gray-200"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                            />
+                          </svg>
+                          全てをダウンロード
+                        </button>
+                        <button
+                          onClick={() => {
+                            exportJSON();
+                            setShowExportMenu(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                          JSON形式でエクスポート
+                        </button>
+                        <button
+                          onClick={() => {
+                            exportCSV();
+                            setShowExportMenu(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                          CSV形式でエクスポート
+                        </button>
+                        {job?.result?.heatmap_url && (
+                          <button
+                            onClick={() => {
+                              downloadImage("heatmap");
+                              setShowExportMenu(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                            ヒートマップをダウンロード
+                          </button>
+                        )}
+                        {job?.result?.scatter_url && (
+                          <button
+                            onClick={() => {
+                              downloadImage("scatter");
+                              setShowExportMenu(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                              />
+                            </svg>
+                            散布図をダウンロード
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
             {jobId && (
               <button

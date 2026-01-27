@@ -21,6 +21,7 @@ function CompareContent() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [modalSelectedIds, setModalSelectedIds] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   useEffect(() => {
     const idsParam = searchParams.get("ids");
@@ -142,6 +143,57 @@ function CompareContent() {
     (a) => !selectedIds.includes(a.id) && a.status === "done"
   );
 
+  // エクスポート機能
+  const exportCompareCSV = () => {
+    if (analyses.length === 0) return;
+
+    const rows: string[][] = [];
+    
+    // ヘッダー行
+    const headers = [
+      "指標",
+      ...analyses.map((a) => `${a.uniprot_id} (${a.method})`),
+    ];
+    rows.push(headers);
+    
+    // データ行
+    const metrics = [
+      { key: "entries", label: "エントリ数" },
+      { key: "chains", label: "鎖数" },
+      { key: "length_percent", label: "長さ%" },
+      { key: "umf", label: "UMF" },
+      { key: "mean_score", label: "平均スコア" },
+      { key: "cis_num", label: "cis数" },
+      { key: "cis_dist_mean", label: "cis距離平均" },
+      { key: "resolution", label: "解像度" },
+      { key: "mean_std", label: "平均標準偏差" },
+      { key: "cis_dist_std", label: "cis距離標準偏差" },
+    ];
+    
+    metrics.forEach((metric) => {
+      const row = [metric.label];
+      analyses.forEach((analysis) => {
+        row.push(formatMetric(analysis.metrics, metric.key));
+      });
+      rows.push(row);
+    });
+    
+    // CSV文字列に変換
+    const csvContent = rows.map(row => 
+      row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+    ).join("\n");
+    
+    const dataBlob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `dsa_compare_${analyses.map(a => a.uniprot_id).join("_")}_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
       <div className="max-w-7xl mx-auto">
@@ -227,9 +279,68 @@ function CompareContent() {
           </div>
         </div>
 
-        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-8">
-          解析比較
-        </h1>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold">
+            解析比較
+          </h1>
+          {analyses.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-blue-700 text-sm sm:text-base flex items-center gap-2"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                エクスポート
+              </button>
+              {showExportMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowExportMenu(false)}
+                  ></div>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                    <div className="py-1">
+                      <button
+                        onClick={() => {
+                          exportCompareCSV();
+                          setShowExportMenu(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                        CSV形式でエクスポート
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         {analyses.length > 0 && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded text-sm sm:text-base">

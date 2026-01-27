@@ -643,10 +643,10 @@ function ResultContent() {
                       </p>
                     </div>
                   )}
-                  {stats.chains && (
+                  {stats.chains !== undefined && (
                     <div>
                       <p className="text-xs sm:text-sm text-gray-600">
-                        チェーン数 (Chains)
+                        使用チェーン数 (Used Chains)
                       </p>
                       <p className="text-base sm:text-lg font-semibold">
                         {stats.chains}
@@ -663,10 +663,10 @@ function ResultContent() {
                       </p>
                     </div>
                   )}
-                  {stats.length_percent && (
+                  {stats.length_percent !== undefined && (
                     <div>
                       <p className="text-xs sm:text-sm text-gray-600">
-                        残基カバレッジ (Length%)
+                        残基数/全長 (%) (Length Coverage)
                       </p>
                       <p className="text-base sm:text-lg font-semibold">
                         {stats.length_percent}%

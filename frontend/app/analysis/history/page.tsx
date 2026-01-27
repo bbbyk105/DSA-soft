@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense, useCallback, useMemo } from "react";
+import { useEffect, useState, Suspense, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,6 +16,10 @@ function HistoryContent() {
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 表示用の進捗値（1%ずつ増やしていく）
+  const [displayProgress, setDisplayProgress] = useState<Record<string, number>>({});
+  // 最新のanalysesを保持するためのref
+  const analysesRef = useRef<AnalysisSummary[]>([]);
 
   // フィルター状態
   const [uniprotId, setUniprotId] = useState("");
@@ -48,9 +52,7 @@ function HistoryContent() {
       if (toDate) filters.to = toDate;
       filters.limit = 100;
 
-      console.log("[History] Fetching analyses with filters:", filters);
       const data = await listAnalyses(filters);
-      console.log("[History] Received analyses:", data);
       setAnalyses(data);
     } catch (err) {
       console.error("[History] Error fetching analyses:", err);
@@ -64,6 +66,11 @@ function HistoryContent() {
   useEffect(() => {
     fetchAnalyses();
   }, [fetchAnalyses]);
+
+  // analysesが更新されたらrefも更新
+  useEffect(() => {
+    analysesRef.current = analyses;
+  }, [analyses]);
 
   // 進行中のジョブのIDリストをメモ化
   const runningJobIds = useMemo(
@@ -86,6 +93,77 @@ function HistoryContent() {
     return () => clearInterval(interval);
   }, [runningJobIds, fetchAnalyses]);
 
+  // 1%ずつ進捗を増やすアニメーション
+  useEffect(() => {
+    if (!runningJobIds) {
+      setDisplayProgress({});
+      return;
+    }
+
+    const running = analyses.filter(
+      (a) => a.status === "queued" || a.status === "running"
+    );
+    
+    if (running.length === 0) {
+      setDisplayProgress({});
+      return;
+    }
+
+    // 初期化：新しい解析を追加
+    setDisplayProgress((prev) => {
+      const updated = { ...prev };
+      let hasChanges = false;
+
+      running.forEach((analysis) => {
+        if (!(analysis.id in updated)) {
+          // 新しい解析の場合は、実際の進捗または5%から開始
+          const actualProgress = Math.min(Math.max(analysis.progress ?? 0, 0), 100);
+          updated[analysis.id] = Math.max(actualProgress, 5);
+          hasChanges = true;
+        }
+      });
+
+      return hasChanges ? updated : prev;
+    });
+
+    // 1%ずつ増やすインターバル
+    const interval = setInterval(() => {
+      setDisplayProgress((prev) => {
+        // 最新のanalysesを参照（refを使用してクロージャの問題を回避）
+        const currentRunning = analysesRef.current.filter(
+          (a) => a.status === "queued" || a.status === "running"
+        );
+        
+        const updated: Record<string, number> = { ...prev };
+        let hasChanges = false;
+
+        currentRunning.forEach((analysis) => {
+          const actualProgress = Math.min(
+            Math.max(analysis.progress ?? 0, 0),
+            100
+          );
+          const currentDisplay = prev[analysis.id];
+          
+          if (currentDisplay === undefined) {
+            updated[analysis.id] = Math.max(actualProgress, 5);
+            hasChanges = true;
+            return;
+          }
+          
+          // 見た目だけ1%ずつ増やす（実際の進捗に関係なく、99%で止まる）
+          if (currentDisplay < 99) {
+            updated[analysis.id] = currentDisplay + 1;
+            hasChanges = true;
+          }
+        });
+
+        return hasChanges ? updated : prev;
+      });
+    }, 800);
+
+    return () => clearInterval(interval);
+  }, [runningJobIds]);
+
   const handleRerun = async (id: string) => {
     try {
       const result = await rerunAnalysis(id);
@@ -100,27 +178,14 @@ function HistoryContent() {
       return;
     }
     try {
-      console.log("[History] Deleting analysis:", id);
-      console.log(
-        "[History] API_BASE_URL:",
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-      );
-
       // 即座にローカル状態から削除（楽観的更新）
       setAnalyses((prev) => prev.filter((a) => a.id !== id));
 
-      const result = await deleteAnalysis(id);
-      console.log("[History] Analysis deleted successfully:", result);
+      await deleteAnalysis(id);
 
       // 履歴を再取得して最新状態を反映
       await fetchAnalyses();
     } catch (err) {
-      console.error("[History] Error deleting analysis:", err);
-      console.error("[History] Error details:", {
-        message: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
-      });
-
       // エラーが発生した場合は再取得して元に戻す
       await fetchAnalyses();
 
@@ -374,23 +439,32 @@ function HistoryContent() {
                                 : analysis.status}
                             </span>
                             {(analysis.status === "queued" ||
-                              analysis.status === "running") &&
-                              analysis.progress !== undefined && (
+                              analysis.status === "running") && (
                                 <div className="w-full">
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden relative">
                                     <div
-                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                      className="h-2 rounded-full transition-all duration-700 ease-out relative overflow-hidden bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500"
                                       style={{
                                         width: `${Math.min(
-                                          Math.max(analysis.progress, 0),
+                                          Math.max(displayProgress[analysis.id] ?? analysis.progress ?? 5, 5),
                                           100
                                         )}%`,
+                                        backgroundSize: "200% 100%",
+                                        animation: "progress-gradient 3s ease infinite",
                                       }}
-                                    ></div>
+                                    >
+                                      {/* アニメーション効果: シマー */}
+                                      <div
+                                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                                        style={{
+                                          animation: "shimmer 2s infinite",
+                                        }}
+                                      ></div>
+                                    </div>
                                   </div>
                                   <p className="text-xs text-gray-600 mt-1">
                                     {Math.min(
-                                      Math.max(analysis.progress, 0),
+                                      Math.max(displayProgress[analysis.id] ?? analysis.progress ?? 0, 0),
                                       100
                                     )}
                                     %

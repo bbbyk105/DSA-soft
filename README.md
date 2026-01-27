@@ -1,6 +1,6 @@
 # DSA Analysis - フルスタック実装
 
-Jupyter Notebook で確立された DSA（Distance-based Structural Analysis）解析を、Web 上から再現可能に実行・可視化できるフルスタック基盤です。
+Jupyter Notebook で確立された DSA（Distance Scoring Analysis）を、Web 上から再現可能に実行・可視化できるフルスタック基盤です。
 
 ## 構成
 

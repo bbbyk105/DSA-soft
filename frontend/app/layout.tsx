@@ -4,8 +4,8 @@ import CookieConsentBanner from "@/components/CookieConsent";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "DSA (Distance-based Structural Analysis)",
-  description: "Distance-based Structural Analysis",
+  title: "DSA (Distance Scoring Analysis)",
+  description: "Distance Scoring Analysis",
 };
 
 export const viewport: Viewport = {
@@ -22,9 +22,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className="flex flex-col min-h-screen">
-        <main className="flex-1">
-          {children}
-        </main>
+        <main className="flex-1">{children}</main>
         <Footer />
         <CookieConsentBanner />
       </body>

@@ -606,7 +606,7 @@ function ResultContent() {
           </div>
         </div>
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 break-words">
-          DSA (Distance-based Structural Analysis) 解析結果 -{" "}
+          DSA (Distance Scoring Analysis) 解析結果 -{" "}
           <span className="text-blue-600">
             {stats.uniprot_id || result.uniprot_id}
           </span>
@@ -626,7 +626,9 @@ function ResultContent() {
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                   <div>
-                    <p className="text-xs sm:text-sm text-gray-600">UniProt ID</p>
+                    <p className="text-xs sm:text-sm text-gray-600">
+                      UniProt ID
+                    </p>
                     <p className="text-base sm:text-lg font-semibold break-words">
                       {stats.uniprot_id || result.uniprot_id}
                     </p>
@@ -636,7 +638,9 @@ function ResultContent() {
                       <p className="text-xs sm:text-sm text-gray-600">
                         エントリ数 (Entries)
                       </p>
-                      <p className="text-base sm:text-lg font-semibold">{stats.entries}</p>
+                      <p className="text-base sm:text-lg font-semibold">
+                        {stats.entries}
+                      </p>
                     </div>
                   )}
                   {stats.chains && (
@@ -644,13 +648,19 @@ function ResultContent() {
                       <p className="text-xs sm:text-sm text-gray-600">
                         チェーン数 (Chains)
                       </p>
-                      <p className="text-base sm:text-lg font-semibold">{stats.chains}</p>
+                      <p className="text-base sm:text-lg font-semibold">
+                        {stats.chains}
+                      </p>
                     </div>
                   )}
                   {stats.length && (
                     <div>
-                      <p className="text-xs sm:text-sm text-gray-600">残基数 (Length)</p>
-                      <p className="text-base sm:text-lg font-semibold">{stats.length}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">
+                        残基数 (Length)
+                      </p>
+                      <p className="text-base sm:text-lg font-semibold">
+                        {stats.length}
+                      </p>
                     </div>
                   )}
                   {stats.length_percent && (
@@ -713,7 +723,9 @@ function ResultContent() {
                   )}
                   {cisAnalysis.cis_num !== undefined && stats.length && (
                     <div>
-                      <p className="text-xs sm:text-sm text-gray-600">Cis/Length(%)</p>
+                      <p className="text-xs sm:text-sm text-gray-600">
+                        Cis/Length(%)
+                      </p>
                       <p className="text-base sm:text-lg font-semibold">
                         {((cisAnalysis.cis_num / stats.length) * 100).toFixed(
                           2,
@@ -911,12 +923,14 @@ function ResultContent() {
                   </select>
                 </div>
                 {selectedPdbId && jobId && (
-                  <div className="w-full" style={{ minHeight: '600px' }}>
-                    <Suspense fallback={
-                      <div className="w-full h-[600px] flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
-                        <p className="text-gray-500 text-sm">読み込み中...</p>
-                      </div>
-                    }>
+                  <div className="w-full" style={{ minHeight: "600px" }}>
+                    <Suspense
+                      fallback={
+                        <div className="w-full h-[600px] flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
+                          <p className="text-gray-500 text-sm">読み込み中...</p>
+                        </div>
+                      }
+                    >
                       <MolstarViewer
                         key={selectedPdbId}
                         pdbId={selectedPdbId}

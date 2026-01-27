@@ -1,3 +1,3 @@
-"""DSA (Distance-based Structural Analysis) package"""
+"""DSA (Distance Scoring Analysis) package"""
 
 __version__ = "1.0.0"

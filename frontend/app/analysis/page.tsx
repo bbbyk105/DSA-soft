@@ -28,6 +28,8 @@ function AnalysisContent() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [runningAnalyses, setRunningAnalyses] = useState<AnalysisSummary[]>([]);
   const [loadingAnalyses, setLoadingAnalyses] = useState(false);
+  // 表示用の進捗値（1%ずつ増やしていく）
+  const [displayProgress, setDisplayProgress] = useState<Record<string, number>>({});
 
   // Prefill機能: URLパラメータから分析IDを取得してフォームを初期化
   useEffect(() => {
@@ -105,6 +107,76 @@ function AnalysisContent() {
 
     return () => clearInterval(interval);
   }, [runningJobIds, fetchRunningAnalyses]);
+
+  // 1%ずつ進捗を増やすアニメーション
+  useEffect(() => {
+    if (!runningJobIds) {
+      setDisplayProgress({});
+      return;
+    }
+
+    const running = runningAnalyses.filter(
+      (a) => a.status === "queued" || a.status === "running"
+    );
+    
+    if (running.length === 0) {
+      setDisplayProgress({});
+      return;
+    }
+
+    // 初期化：新しい解析を追加
+    setDisplayProgress((prev) => {
+      const updated = { ...prev };
+      let hasChanges = false;
+
+      running.forEach((analysis) => {
+        if (!(analysis.id in updated)) {
+          // 新しい解析の場合は、実際の進捗または5%から開始
+          const actualProgress = Math.min(Math.max(analysis.progress ?? 0, 0), 100);
+          updated[analysis.id] = Math.max(actualProgress, 5);
+          hasChanges = true;
+        }
+      });
+
+      return hasChanges ? updated : prev;
+    });
+
+    // 1%ずつ増やすインターバル
+    const interval = setInterval(() => {
+      setDisplayProgress((prev) => {
+        const currentRunning = runningAnalyses.filter(
+          (a) => a.status === "queued" || a.status === "running"
+        );
+        
+        const updated: Record<string, number> = { ...prev };
+        let hasChanges = false;
+
+        currentRunning.forEach((analysis) => {
+          const actualProgress = Math.min(
+            Math.max(analysis.progress ?? 0, 0),
+            100
+          );
+          const currentDisplay = prev[analysis.id];
+          
+          if (currentDisplay === undefined) {
+            updated[analysis.id] = Math.max(actualProgress, 5);
+            hasChanges = true;
+            return;
+          }
+          
+          // 見た目だけ1%ずつ増やす（実際の進捗に関係なく、99%で止まる）
+          if (currentDisplay < 99) {
+            updated[analysis.id] = currentDisplay + 1;
+            hasChanges = true;
+          }
+        });
+
+        return hasChanges ? updated : prev;
+      });
+    }, 800);
+
+    return () => clearInterval(interval);
+  }, [runningJobIds, runningAnalyses]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -468,25 +540,37 @@ function AnalysisContent() {
                     </div>
                   )}
                   {(analysis.status === "queued" ||
-                    analysis.status === "running") &&
-                    analysis.progress !== undefined && (
+                    analysis.status === "running") && (
                       <div className="mt-3">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm text-gray-600">進捗</span>
                           <span className="text-sm font-medium text-gray-700">
-                            {Math.min(Math.max(analysis.progress, 0), 100)}%
+                            {Math.min(
+                              Math.max(displayProgress[analysis.id] ?? analysis.progress ?? 0, 0),
+                              100
+                            )}%
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden relative">
                           <div
-                            className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                            className="h-3 rounded-full transition-all duration-700 ease-out relative overflow-hidden bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500"
                             style={{
                               width: `${Math.min(
-                                Math.max(analysis.progress, 0),
+                                Math.max(displayProgress[analysis.id] ?? analysis.progress ?? 5, 5),
                                 100
                               )}%`,
+                              backgroundSize: "200% 100%",
+                              animation: "progress-gradient 3s ease infinite",
                             }}
-                          ></div>
+                          >
+                            {/* アニメーション効果: シマー */}
+                            <div
+                              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                              style={{
+                                animation: "shimmer 2s infinite",
+                              }}
+                            ></div>
+                          </div>
                         </div>
                       </div>
                     )}

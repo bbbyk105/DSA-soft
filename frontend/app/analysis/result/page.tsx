@@ -19,6 +19,7 @@ function ResultContent() {
   const [error, setError] = useState<string | null>(null);
   const [pdbList, setPdbList] = useState<string[]>([]);
   const [selectedPdbId, setSelectedPdbId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!jobId) {
@@ -186,24 +187,90 @@ function ResultContent() {
             <span className="mr-1">←</span>
             Home に戻る
           </Link>
-          {jobId && (
-            <button
-              onClick={() => {
-                const currentIds =
-                  new URLSearchParams(window.location.search).get("ids") || "";
-                const ids = currentIds
-                  ? currentIds.split(",").filter(Boolean)
-                  : [];
-                if (!ids.includes(jobId)) {
-                  ids.push(jobId);
-                }
-                window.location.href = `/analysis/compare?ids=${ids.join(",")}`;
-              }}
-              className="bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-purple-700 text-sm sm:text-base w-full sm:w-auto"
-            >
-              Compareに追加 / Add to Compare
-            </button>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {jobId && (
+              <button
+                onClick={async () => {
+                  const url = `${window.location.origin}/analysis/result?job_id=${jobId}`;
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  } catch (err) {
+                    console.error("Failed to copy URL:", err);
+                    // フォールバック: テキストエリアを使用
+                    const textArea = document.createElement("textarea");
+                    textArea.value = url;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    try {
+                      document.execCommand("copy");
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    } catch (fallbackErr) {
+                      console.error("Fallback copy failed:", fallbackErr);
+                    }
+                    document.body.removeChild(textArea);
+                  }
+                }}
+                className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-green-700 text-sm sm:text-base flex items-center gap-2"
+              >
+                {copied ? (
+                  <>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    コピーしました！
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                    リンクをコピー
+                  </>
+                )}
+              </button>
+            )}
+            {jobId && (
+              <button
+                onClick={() => {
+                  const currentIds =
+                    new URLSearchParams(window.location.search).get("ids") || "";
+                  const ids = currentIds
+                    ? currentIds.split(",").filter(Boolean)
+                    : [];
+                  if (!ids.includes(jobId)) {
+                    ids.push(jobId);
+                  }
+                  window.location.href = `/analysis/compare?ids=${ids.join(",")}`;
+                }}
+                className="bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-purple-700 text-sm sm:text-base w-full sm:w-auto"
+              >
+                Compareに追加 / Add to Compare
+              </button>
+            )}
+          </div>
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">
           DSA (Distance-based Structural Analysis) 解析結果 -{" "}

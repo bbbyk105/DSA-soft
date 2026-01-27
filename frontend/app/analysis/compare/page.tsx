@@ -20,6 +20,7 @@ function CompareContent() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [modalSelectedIds, setModalSelectedIds] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const idsParam = searchParams.get("ids");
@@ -152,12 +153,78 @@ function CompareContent() {
             <span className="mr-1">←</span>
             履歴に戻る
           </Link>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-blue-700 text-sm sm:text-base w-full sm:w-auto"
-          >
-            + 解析を追加
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {selectedIds.length > 0 && (
+              <button
+                onClick={async () => {
+                  const url = `${window.location.origin}/analysis/compare?ids=${selectedIds.join(",")}`;
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  } catch (err) {
+                    console.error("Failed to copy URL:", err);
+                    // フォールバック: テキストエリアを使用
+                    const textArea = document.createElement("textarea");
+                    textArea.value = url;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    try {
+                      document.execCommand("copy");
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    } catch (fallbackErr) {
+                      console.error("Fallback copy failed:", fallbackErr);
+                    }
+                    document.body.removeChild(textArea);
+                  }
+                }}
+                className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-green-700 text-sm sm:text-base flex items-center gap-2"
+              >
+                {copied ? (
+                  <>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    コピーしました！
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                    リンクをコピー
+                  </>
+                )}
+              </button>
+            )}
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-blue-700 text-sm sm:text-base w-full sm:w-auto"
+            >
+              + 解析を追加
+            </button>
+          </div>
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-8">

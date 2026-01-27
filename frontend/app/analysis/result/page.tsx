@@ -365,12 +365,12 @@ function ResultContent() {
         <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
           <Link
             href="/analysis"
-            className="inline-flex items-center text-blue-600 hover:underline text-sm sm:text-base"
+            className="inline-flex items-center text-blue-600 hover:underline text-sm sm:text-base mb-2 sm:mb-0"
           >
             <span className="mr-1">←</span>
             Home に戻る
           </Link>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             {jobId && (
               <button
                 onClick={async () => {
@@ -396,7 +396,7 @@ function ResultContent() {
                     document.body.removeChild(textArea);
                   }
                 }}
-                className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-green-700 text-sm sm:text-base flex items-center gap-2"
+                className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-green-700 text-xs sm:text-sm md:text-base flex items-center gap-2 whitespace-nowrap"
               >
                 {copied ? (
                   <>
@@ -439,7 +439,7 @@ function ResultContent() {
               <div className="relative">
                 <button
                   onClick={() => setShowExportMenu(!showExportMenu)}
-                  className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-blue-700 text-sm sm:text-base flex items-center gap-2"
+                  className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-blue-700 text-xs sm:text-sm md:text-base flex items-center gap-2 whitespace-nowrap"
                 >
                   <svg
                     className="w-4 h-4"
@@ -462,7 +462,7 @@ function ResultContent() {
                       className="fixed inset-0 z-10"
                       onClick={() => setShowExportMenu(false)}
                     ></div>
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                    <div className="absolute right-0 sm:right-0 left-0 sm:left-auto mt-2 w-full sm:w-56 bg-white rounded-md shadow-lg z-20 border border-gray-200">
                       <div className="py-1">
                         <button
                           onClick={async () => {
@@ -598,19 +598,21 @@ function ResultContent() {
                   }
                   window.location.href = `/analysis/compare?ids=${ids.join(",")}`;
                 }}
-                className="bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-purple-700 text-sm sm:text-base w-full sm:w-auto"
+                className="bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-purple-700 text-xs sm:text-sm md:text-base w-full sm:w-auto whitespace-nowrap"
               >
                 Compareに追加 / Add to Compare
               </button>
             )}
           </div>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 break-words">
           DSA (Distance-based Structural Analysis) 解析結果 -{" "}
-          {stats.uniprot_id || result.uniprot_id}
+          <span className="text-blue-600">
+            {stats.uniprot_id || result.uniprot_id}
+          </span>
         </h1>
-        <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-8 break-words">
-          ジョブ ID: {jobId}
+        <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-8 break-all">
+          ジョブ ID: <span className="font-mono">{jobId}</span>
         </p>
 
         <div className="space-y-4 sm:space-y-8">
@@ -619,100 +621,100 @@ function ResultContent() {
             <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               {/* 解析概要 Overview */}
               <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
-                <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4">
                   解析概要 Overview
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                   <div>
-                    <p className="text-sm text-gray-600">UniProt ID</p>
-                    <p className="text-lg font-semibold">
+                    <p className="text-xs sm:text-sm text-gray-600">UniProt ID</p>
+                    <p className="text-base sm:text-lg font-semibold break-words">
                       {stats.uniprot_id || result.uniprot_id}
                     </p>
                   </div>
                   {stats.entries && (
                     <div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs sm:text-sm text-gray-600">
                         エントリ数 (Entries)
                       </p>
-                      <p className="text-lg font-semibold">{stats.entries}</p>
+                      <p className="text-base sm:text-lg font-semibold">{stats.entries}</p>
                     </div>
                   )}
                   {stats.chains && (
                     <div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs sm:text-sm text-gray-600">
                         チェーン数 (Chains)
                       </p>
-                      <p className="text-lg font-semibold">{stats.chains}</p>
+                      <p className="text-base sm:text-lg font-semibold">{stats.chains}</p>
                     </div>
                   )}
                   {stats.length && (
                     <div>
-                      <p className="text-sm text-gray-600">残基数 (Length)</p>
-                      <p className="text-lg font-semibold">{stats.length}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">残基数 (Length)</p>
+                      <p className="text-base sm:text-lg font-semibold">{stats.length}</p>
                     </div>
                   )}
                   {stats.length_percent && (
                     <div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs sm:text-sm text-gray-600">
                         残基カバレッジ (Length%)
                       </p>
-                      <p className="text-lg font-semibold">
+                      <p className="text-base sm:text-lg font-semibold">
                         {stats.length_percent}%
                       </p>
                     </div>
                   )}
                   {stats.resolution && (
                     <div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs sm:text-sm text-gray-600">
                         分解能 (Resolution)
                       </p>
-                      <p className="text-lg font-semibold">
+                      <p className="text-base sm:text-lg font-semibold">
                         {stats.resolution} Å
                       </p>
                     </div>
                   )}
                   {stats.umf && (
                     <div>
-                      <p className="text-sm text-gray-600">UMF</p>
-                      <p className="text-lg font-semibold text-blue-600">
+                      <p className="text-xs sm:text-sm text-gray-600">UMF</p>
+                      <p className="text-base sm:text-lg font-semibold text-blue-600">
                         {stats.umf}
                       </p>
                     </div>
                   )}
                   {scoreSummary.mean_score && (
                     <div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs sm:text-sm text-gray-600">
                         ペアスコア平均 (Average Pair Score)
                       </p>
-                      <p className="text-lg font-semibold">
+                      <p className="text-base sm:text-lg font-semibold">
                         {scoreSummary.mean_score.toFixed(2)}
                       </p>
                     </div>
                   )}
                   {scoreSummary.mean_std && (
                     <div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs sm:text-sm text-gray-600">
                         ペアスコア標準偏差 (Pair Score Standard Deviation)
                       </p>
-                      <p className="text-lg font-semibold">
+                      <p className="text-base sm:text-lg font-semibold">
                         {scoreSummary.mean_std.toFixed(2)}
                       </p>
                     </div>
                   )}
                   {cisAnalysis.cis_num !== undefined && (
                     <div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs sm:text-sm text-gray-600">
                         Cisペア数 (Cis Pair Count)
                       </p>
-                      <p className="text-lg font-semibold text-purple-600">
+                      <p className="text-base sm:text-lg font-semibold text-purple-600">
                         {cisAnalysis.cis_num}
                       </p>
                     </div>
                   )}
                   {cisAnalysis.cis_num !== undefined && stats.length && (
                     <div>
-                      <p className="text-sm text-gray-600">Cis/Length(%)</p>
-                      <p className="text-lg font-semibold">
+                      <p className="text-xs sm:text-sm text-gray-600">Cis/Length(%)</p>
+                      <p className="text-base sm:text-lg font-semibold">
                         {((cisAnalysis.cis_num / stats.length) * 100).toFixed(
                           2,
                         )}
@@ -722,10 +724,10 @@ function ResultContent() {
                   )}
                   {cisAnalysis.mix !== undefined && (
                     <div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs sm:text-sm text-gray-600">
                         Mix (Cis/Trans混在)
                       </p>
-                      <p className="text-lg font-semibold text-orange-600">
+                      <p className="text-base sm:text-lg font-semibold text-orange-600">
                         {cisAnalysis.mix}
                       </p>
                     </div>
@@ -734,15 +736,15 @@ function ResultContent() {
 
                 {/* 使用PDB IDリスト */}
                 {stats.pdb_ids && stats.pdb_ids.length > 0 && (
-                  <div className="mt-6">
-                    <p className="text-sm font-medium text-gray-700 mb-2">
+                  <div className="mt-4 sm:mt-6">
+                    <p className="text-xs sm:text-sm font-medium text-gray-700 mb-2">
                       使用 PDB ID
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {stats.pdb_ids.map((pdbId: string, idx: number) => (
                         <span
                           key={idx}
-                          className="px-2 py-1 bg-gray-100 rounded text-sm"
+                          className="px-2 py-1 bg-gray-100 rounded text-xs sm:text-sm"
                         >
                           {pdbId}
                         </span>
@@ -755,64 +757,64 @@ function ResultContent() {
               {/* Cisペプチド結合解析結果 */}
               {cisAnalysis.cis_num !== undefined && cisAnalysis.cis_num > 0 && (
                 <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
-                  <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
+                  <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4">
                     Cisペプチド結合解析結果
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                     <div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs sm:text-sm text-gray-600">
                         Cisペア数 (Cis Pair Count)
                       </p>
-                      <p className="text-lg font-semibold text-purple-600">
+                      <p className="text-base sm:text-lg font-semibold text-purple-600">
                         {cisAnalysis.cis_num}
                       </p>
                     </div>
                     {cisAnalysis.cis_dist_mean !== undefined && (
                       <div>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs sm:text-sm text-gray-600">
                           平均Cis距離 (Average Cis Distance)
                         </p>
-                        <p className="text-lg font-semibold">
+                        <p className="text-base sm:text-lg font-semibold">
                           {cisAnalysis.cis_dist_mean} Å
                         </p>
                       </div>
                     )}
                     {cisAnalysis.cis_dist_std !== undefined && (
                       <div>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs sm:text-sm text-gray-600">
                           Cis距離標準偏差 (Cis Distance Standard Deviation)
                         </p>
-                        <p className="text-lg font-semibold">
+                        <p className="text-base sm:text-lg font-semibold">
                           {cisAnalysis.cis_dist_std} Å
                         </p>
                       </div>
                     )}
                     {cisAnalysis.cis_score_mean !== undefined && (
                       <div>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs sm:text-sm text-gray-600">
                           平均Cisスコア (Average Cis Score)
                         </p>
-                        <p className="text-lg font-semibold">
+                        <p className="text-base sm:text-lg font-semibold">
                           {cisAnalysis.cis_score_mean}
                         </p>
                       </div>
                     )}
                     {cisAnalysis.mix !== undefined && (
                       <div>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs sm:text-sm text-gray-600">
                           Mix (Cis/Trans混在)
                         </p>
-                        <p className="text-lg font-semibold text-orange-600">
+                        <p className="text-base sm:text-lg font-semibold text-orange-600">
                           {cisAnalysis.mix}
                         </p>
                       </div>
                     )}
                     {cisAnalysis.threshold !== undefined && (
                       <div>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs sm:text-sm text-gray-600">
                           閾値 (Threshold)
                         </p>
-                        <p className="text-lg font-semibold">
+                        <p className="text-base sm:text-lg font-semibold">
                           {cisAnalysis.threshold} Å
                         </p>
                       </div>
@@ -826,16 +828,18 @@ function ResultContent() {
                         <p className="text-sm font-medium text-gray-700 mb-2">
                           Cisペアリスト (最初の20個)
                         </p>
-                        <p className="text-sm text-gray-600">
-                          {cisAnalysis.cis_pair_list.join(", ")}
-                          {cisAnalysis.cis_pair_total &&
-                            cisAnalysis.cis_pair_total > 20 && (
-                              <span>
-                                {" "}
-                                ... (他{cisAnalysis.cis_pair_total - 20}個)
-                              </span>
-                            )}
-                        </p>
+                        <div className="text-sm text-gray-600 break-words overflow-x-auto">
+                          <p className="inline">
+                            {cisAnalysis.cis_pair_list.join(", ")}
+                            {cisAnalysis.cis_pair_total &&
+                              cisAnalysis.cis_pair_total > 20 && (
+                                <span>
+                                  {" "}
+                                  ... (他{cisAnalysis.cis_pair_total - 20}個)
+                                </span>
+                              )}
+                          </p>
+                        </div>
                       </div>
                     )}
                 </div>
@@ -846,15 +850,15 @@ function ResultContent() {
           {/* ヒートマップ */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="p-4 sm:p-6">
-              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4">
                 DSA Score Heatmap
               </h2>
               {job.result?.heatmap_url && (
-                <div className="flex justify-center">
+                <div className="flex justify-center overflow-x-auto">
                   <img
                     src={getResultUrl(jobId!, "heatmap.png")}
                     alt="DSA Score Heatmap"
-                    className="w-full sm:w-3/4 md:w-1/2 max-w-2xl h-auto rounded-lg shadow-md"
+                    className="w-full sm:w-auto sm:max-w-full md:max-w-2xl h-auto rounded-lg shadow-md"
                   />
                 </div>
               )}
@@ -864,15 +868,15 @@ function ResultContent() {
           {/* Distance-Score Plot */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="p-4 sm:p-6">
-              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4">
                 Distance-Score Plot
               </h2>
               {job.result?.scatter_url && (
-                <div className="flex justify-center">
+                <div className="flex justify-center overflow-x-auto">
                   <img
                     src={getResultUrl(jobId!, "dist_score.png")}
                     alt="Distance vs Score"
-                    className="w-full sm:w-3/4 md:w-1/2 max-w-2xl h-auto rounded-lg shadow-md"
+                    className="w-full sm:w-auto sm:max-w-full md:max-w-2xl h-auto rounded-lg shadow-md"
                   />
                 </div>
               )}
@@ -883,13 +887,13 @@ function ResultContent() {
           {pdbList.length > 0 && (
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
               <div className="p-4 sm:p-6">
-                <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4">
                   3D Structure Viewer (Mol*)
                 </h2>
                 <div className="mb-3 sm:mb-4">
                   <label
                     htmlFor="pdb-select"
-                    className="block text-sm font-medium text-gray-700 mb-2"
+                    className="block text-xs sm:text-sm font-medium text-gray-700 mb-2"
                   >
                     PDB構造を選択
                   </label>
@@ -907,12 +911,18 @@ function ResultContent() {
                   </select>
                 </div>
                 {selectedPdbId && jobId && (
-                  <div className="w-full">
-                    <MolstarViewer
-                      key={selectedPdbId}
-                      pdbId={selectedPdbId}
-                      className="w-full"
-                    />
+                  <div className="w-full" style={{ minHeight: '600px' }}>
+                    <Suspense fallback={
+                      <div className="w-full h-[600px] flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-gray-500 text-sm">読み込み中...</p>
+                      </div>
+                    }>
+                      <MolstarViewer
+                        key={selectedPdbId}
+                        pdbId={selectedPdbId}
+                        className="w-full"
+                      />
+                    </Suspense>
                   </div>
                 )}
               </div>

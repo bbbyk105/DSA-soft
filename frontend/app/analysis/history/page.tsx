@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useState, Suspense, useCallback, useMemo, useRef } from "react";
+import {
+  useEffect,
+  useState,
+  Suspense,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -17,7 +24,9 @@ function HistoryContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // 表示用の進捗値（1%ずつ増やしていく）
-  const [displayProgress, setDisplayProgress] = useState<Record<string, number>>({});
+  const [displayProgress, setDisplayProgress] = useState<
+    Record<string, number>
+  >({});
   // 最新のanalysesを保持するためのref
   const analysesRef = useRef<AnalysisSummary[]>([]);
 
@@ -32,6 +41,8 @@ function HistoryContent() {
   const [compareIds, setCompareIds] = useState<string[]>([]);
   // Delete selection
   const [deleteIds, setDeleteIds] = useState<string[]>([]);
+  // Export menu
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   useEffect(() => {
     const idsParam = searchParams.get("ids");
@@ -81,7 +92,7 @@ function HistoryContent() {
         .filter((a) => a.status === "queued" || a.status === "running")
         .map((a) => a.id)
         .join(","),
-    [analyses]
+    [analyses],
   );
 
   // 進行中のジョブをポーリング
@@ -103,9 +114,9 @@ function HistoryContent() {
     }
 
     const running = analyses.filter(
-      (a) => a.status === "queued" || a.status === "running"
+      (a) => a.status === "queued" || a.status === "running",
     );
-    
+
     if (running.length === 0) {
       setDisplayProgress({});
       return;
@@ -119,7 +130,10 @@ function HistoryContent() {
       running.forEach((analysis) => {
         if (!(analysis.id in updated)) {
           // 新しい解析の場合は、実際の進捗または5%から開始
-          const actualProgress = Math.min(Math.max(analysis.progress ?? 0, 0), 100);
+          const actualProgress = Math.min(
+            Math.max(analysis.progress ?? 0, 0),
+            100,
+          );
           updated[analysis.id] = Math.max(actualProgress, 5);
           hasChanges = true;
         }
@@ -133,25 +147,25 @@ function HistoryContent() {
       setDisplayProgress((prev) => {
         // 最新のanalysesを参照（refを使用してクロージャの問題を回避）
         const currentRunning = analysesRef.current.filter(
-          (a) => a.status === "queued" || a.status === "running"
+          (a) => a.status === "queued" || a.status === "running",
         );
-        
+
         const updated: Record<string, number> = { ...prev };
         let hasChanges = false;
 
         currentRunning.forEach((analysis) => {
           const actualProgress = Math.min(
             Math.max(analysis.progress ?? 0, 0),
-            100
+            100,
           );
           const currentDisplay = prev[analysis.id];
-          
+
           if (currentDisplay === undefined) {
             updated[analysis.id] = Math.max(actualProgress, 5);
             hasChanges = true;
             return;
           }
-          
+
           // 見た目だけ1%ずつ増やす（実際の進捗に関係なく、99%で止まる）
           if (currentDisplay < 99) {
             updated[analysis.id] = currentDisplay + 1;
@@ -194,7 +208,7 @@ function HistoryContent() {
       const errorMessage =
         err instanceof Error ? err.message : "解析の削除に失敗しました";
       alert(
-        `削除に失敗しました: ${errorMessage}\n\n詳細はブラウザのコンソールを確認してください。`
+        `削除に失敗しました: ${errorMessage}\n\n詳細はブラウザのコンソールを確認してください。`,
       );
     }
   };
@@ -241,7 +255,7 @@ function HistoryContent() {
 
     if (
       !confirm(
-        `${deleteIds.length}件の解析を削除しますか？この操作は取り消せません。`
+        `${deleteIds.length}件の解析を削除しますか？この操作は取り消せません。`,
       )
     ) {
       return;
@@ -268,7 +282,7 @@ function HistoryContent() {
       const errorMessage =
         err instanceof Error ? err.message : "解析の削除に失敗しました";
       alert(
-        `削除に失敗しました: ${errorMessage}\n\n詳細はブラウザのコンソールを確認してください。`
+        `削除に失敗しました: ${errorMessage}\n\n詳細はブラウザのコンソールを確認してください。`,
       );
     }
   };
@@ -291,6 +305,60 @@ function HistoryContent() {
     return String(value);
   };
 
+  // エクスポート機能
+  const exportHistoryCSV = () => {
+    if (analyses.length === 0) return;
+
+    const rows: string[][] = [];
+
+    // ヘッダー
+    rows.push([
+      "UniProt ID",
+      "作成日時",
+      "手法",
+      "ステータス",
+      "エントリ数",
+      "長さ%",
+      "UMF",
+      "平均スコア",
+      "cis数",
+    ]);
+
+    // データ行
+    analyses.forEach((analysis) => {
+      rows.push([
+        analysis.uniprot_id || "",
+        new Date(analysis.created_at).toLocaleString(),
+        analysis.method || "",
+        analysis.status || "",
+        formatMetric(analysis.metrics, "entries"),
+        formatMetric(analysis.metrics, "length_percent"),
+        formatMetric(analysis.metrics, "umf"),
+        formatMetric(analysis.metrics, "mean_score"),
+        formatMetric(analysis.metrics, "cis_num"),
+      ]);
+    });
+
+    // CSV文字列に変換
+    const csvContent = rows
+      .map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+      )
+      .join("\n");
+
+    const dataBlob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `dsa_history_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-50">
       <div className="max-w-7xl mx-auto">
@@ -304,9 +372,66 @@ function HistoryContent() {
           </Link>
         </div>
 
-        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-8">
-          解析履歴
-        </h1>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold">解析履歴</h1>
+          {analyses.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-blue-700 text-sm sm:text-base flex items-center gap-2"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                エクスポート
+              </button>
+              {showExportMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowExportMenu(false)}
+                  ></div>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                    <div className="py-1">
+                      <button
+                        onClick={() => {
+                          exportHistoryCSV();
+                          setShowExportMenu(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                        CSV形式でエクスポート
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* 検索フィルター */}
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md mb-4 sm:mb-6">
@@ -315,6 +440,14 @@ function HistoryContent() {
             <div>
               <label className="block text-sm font-medium mb-2">
                 UniProt ID
+                <a
+                  href="https://www.uniprot.org/uniprotkb/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-2 text-blue-600 hover:underline text-xs font-normal"
+                >
+                  UniProt IDを調べる
+                </a>
               </label>
               <input
                 type="text"
@@ -462,25 +595,25 @@ function HistoryContent() {
                           analysis.status === "done"
                             ? "bg-green-100 text-green-800"
                             : analysis.status === "failed"
-                            ? "bg-red-100 text-red-800"
-                            : analysis.status === "cancelled"
-                            ? "bg-orange-100 text-orange-800"
-                            : analysis.status === "running"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-gray-100 text-gray-800"
+                              ? "bg-red-100 text-red-800"
+                              : analysis.status === "cancelled"
+                                ? "bg-orange-100 text-orange-800"
+                                : analysis.status === "running"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-gray-100 text-gray-800"
                         }`}
                       >
                         {analysis.status === "done"
                           ? "完了"
                           : analysis.status === "failed"
-                          ? "失敗"
-                          : analysis.status === "cancelled"
-                          ? "キャンセル"
-                          : analysis.status === "running"
-                          ? "実行中"
-                          : analysis.status === "queued"
-                          ? "待機中"
-                          : analysis.status}
+                            ? "失敗"
+                            : analysis.status === "cancelled"
+                              ? "キャンセル"
+                              : analysis.status === "running"
+                                ? "実行中"
+                                : analysis.status === "queued"
+                                  ? "待機中"
+                                  : analysis.status}
                       </span>
                     </div>
                   </div>
@@ -498,9 +631,9 @@ function HistoryContent() {
                                 displayProgress[analysis.id] ??
                                   analysis.progress ??
                                   5,
-                                5
+                                5,
                               ),
-                              100
+                              100,
                             )}%`,
                             backgroundSize: "200% 100%",
                             animation: "progress-gradient 3s ease infinite",
@@ -520,9 +653,9 @@ function HistoryContent() {
                             displayProgress[analysis.id] ??
                               analysis.progress ??
                               0,
-                            0
+                            0,
                           ),
-                          100
+                          100,
                         )}
                         %
                       </p>
@@ -530,52 +663,51 @@ function HistoryContent() {
                   )}
 
                   {/* エラーメッセージ */}
-                  {analysis.status === "failed" &&
-                    analysis.error_message && (
-                      <div className="mb-3 p-2 bg-red-50 border border-red-300 rounded text-xs text-red-800 break-words">
-                        <div className="flex items-start mb-1">
-                          <svg
-                            className="w-3 h-3 mr-1 mt-0.5 text-red-600 flex-shrink-0"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                          <strong className="text-red-900">エラー:</strong>
-                        </div>
-                        <div className="ml-4 whitespace-pre-line leading-relaxed">
-                          {analysis.error_message
-                            .split("\n")
-                            .slice(0, 2)
-                            .map((line, i) => {
-                              const trimmed = line.trim();
-                              if (trimmed.match(/^【.*】/)) {
-                                return (
-                                  <div
-                                    key={i}
-                                    className="font-bold text-red-900 mt-1 mb-0.5 first:mt-0"
-                                  >
-                                    {trimmed}
-                                  </div>
-                                );
-                              } else if (trimmed !== "") {
-                                return (
-                                  <div key={i} className="mb-0.5">
-                                    {trimmed}
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })}
-                        </div>
+                  {analysis.status === "failed" && analysis.error_message && (
+                    <div className="mb-3 p-2 bg-red-50 border border-red-300 rounded text-xs text-red-800 break-words">
+                      <div className="flex items-start mb-1">
+                        <svg
+                          className="w-3 h-3 mr-1 mt-0.5 text-red-600 flex-shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <strong className="text-red-900">エラー:</strong>
                       </div>
-                    )}
+                      <div className="ml-4 whitespace-pre-line leading-relaxed">
+                        {analysis.error_message
+                          .split("\n")
+                          .slice(0, 2)
+                          .map((line, i) => {
+                            const trimmed = line.trim();
+                            if (trimmed.match(/^【.*】/)) {
+                              return (
+                                <div
+                                  key={i}
+                                  className="font-bold text-red-900 mt-1 mb-0.5 first:mt-0"
+                                >
+                                  {trimmed}
+                                </div>
+                              );
+                            } else if (trimmed !== "") {
+                              return (
+                                <div key={i} className="mb-0.5">
+                                  {trimmed}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* メトリクス */}
                   <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
@@ -619,9 +751,7 @@ function HistoryContent() {
                   <div className="flex flex-wrap gap-2 pt-2 border-t">
                     <button
                       onClick={() =>
-                        router.push(
-                          `/analysis/result?job_id=${analysis.id}`
-                        )
+                        router.push(`/analysis/result?job_id=${analysis.id}`)
                       }
                       className="text-blue-600 hover:underline text-xs"
                     >
@@ -651,133 +781,139 @@ function HistoryContent() {
               <div className="overflow-x-auto -mx-4 sm:mx-0">
                 <div className="inline-block min-w-full align-middle px-4 sm:px-0">
                   <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium sticky left-0 bg-gray-100 z-10 min-w-[80px]">
-                        <div className="flex items-center gap-2 whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            checked={
-                              analyses.length > 0 &&
-                              deleteIds.length === analyses.length
-                            }
-                            onChange={toggleSelectAll}
-                            className="rounded"
-                          />
-                          <span>削除</span>
-                        </div>
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium min-w-[60px] whitespace-nowrap">
-                        比較
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[140px]">
-                        作成日時
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[100px]">
-                        UniProt ID
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[70px]">
-                        手法
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium min-w-[120px] sm:min-w-[150px] md:min-w-[200px]">
-                        ステータス
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[80px]">
-                        エントリ数
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[70px]">
-                        長さ%
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[60px]">
-                        UMF
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[90px]">
-                        平均スコア
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[70px]">
-                        cis数
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[150px]">
-                        操作
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {analyses.map((analysis) => (
-                      <tr key={analysis.id} className="hover:bg-gray-50">
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 sticky left-0 bg-white z-10 min-w-[80px]">
-                          <div className="flex items-center justify-center">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium sticky left-0 bg-gray-100 z-10 min-w-[80px]">
+                          <div className="flex items-center gap-2 whitespace-nowrap">
                             <input
                               type="checkbox"
-                              checked={deleteIds.includes(analysis.id)}
-                              onChange={() => toggleDelete(analysis.id)}
-                              className="rounded"
-                            />
-                          </div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 min-w-[60px]">
-                          <div className="flex items-center justify-center">
-                            <input
-                              type="checkbox"
-                              checked={compareIds.includes(analysis.id)}
-                              onChange={() => toggleCompare(analysis.id)}
-                              disabled={
-                                analysis.status === "cancelled" ||
-                                analysis.status === "failed"
+                              checked={
+                                analyses.length > 0 &&
+                                deleteIds.length === analyses.length
                               }
+                              onChange={toggleSelectAll}
                               className="rounded"
                             />
+                            <span>削除</span>
                           </div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
-                          {new Date(analysis.created_at).toLocaleString()}
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium">
-                          {analysis.uniprot_id}
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
-                          {analysis.method}
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 min-w-[120px] sm:min-w-[150px] md:min-w-[200px]">
-                          <div className="space-y-1">
-                            <span
-                              className={`px-2 py-1 rounded text-xs ${
-                                analysis.status === "done"
-                                  ? "bg-green-100 text-green-800"
+                        </th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium min-w-[60px] whitespace-nowrap">
+                          比較
+                        </th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[140px]">
+                          作成日時
+                        </th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[100px]">
+                          UniProt ID
+                        </th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[70px]">
+                          手法
+                        </th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium min-w-[120px] sm:min-w-[150px] md:min-w-[200px]">
+                          ステータス
+                        </th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[80px]">
+                          エントリ数
+                        </th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[70px]">
+                          長さ%
+                        </th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[60px]">
+                          UMF
+                        </th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[90px]">
+                          平均スコア
+                        </th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[70px]">
+                          cis数
+                        </th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-medium whitespace-nowrap min-w-[150px]">
+                          操作
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {analyses.map((analysis) => (
+                        <tr key={analysis.id} className="hover:bg-gray-50">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 sticky left-0 bg-white z-10 min-w-[80px]">
+                            <div className="flex items-center justify-center">
+                              <input
+                                type="checkbox"
+                                checked={deleteIds.includes(analysis.id)}
+                                onChange={() => toggleDelete(analysis.id)}
+                                className="rounded"
+                              />
+                            </div>
+                          </td>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 min-w-[60px]">
+                            <div className="flex items-center justify-center">
+                              <input
+                                type="checkbox"
+                                checked={compareIds.includes(analysis.id)}
+                                onChange={() => toggleCompare(analysis.id)}
+                                disabled={
+                                  analysis.status === "cancelled" ||
+                                  analysis.status === "failed"
+                                }
+                                className="rounded"
+                              />
+                            </div>
+                          </td>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                            {new Date(analysis.created_at).toLocaleString()}
+                          </td>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium">
+                            {analysis.uniprot_id}
+                          </td>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                            {analysis.method}
+                          </td>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 min-w-[120px] sm:min-w-[150px] md:min-w-[200px]">
+                            <div className="space-y-1">
+                              <span
+                                className={`px-2 py-1 rounded text-xs ${
+                                  analysis.status === "done"
+                                    ? "bg-green-100 text-green-800"
+                                    : analysis.status === "failed"
+                                      ? "bg-red-100 text-red-800"
+                                      : analysis.status === "cancelled"
+                                        ? "bg-orange-100 text-orange-800"
+                                        : analysis.status === "running"
+                                          ? "bg-blue-100 text-blue-800"
+                                          : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {analysis.status === "done"
+                                  ? "完了"
                                   : analysis.status === "failed"
-                                  ? "bg-red-100 text-red-800"
-                                  : analysis.status === "cancelled"
-                                  ? "bg-orange-100 text-orange-800"
-                                  : analysis.status === "running"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {analysis.status === "done"
-                                ? "完了"
-                                : analysis.status === "failed"
-                                ? "失敗"
-                                : analysis.status === "cancelled"
-                                ? "キャンセル"
-                                : analysis.status === "running"
-                                ? "実行中"
-                                : analysis.status === "queued"
-                                ? "待機中"
-                                : analysis.status}
-                            </span>
-                            {(analysis.status === "queued" ||
-                              analysis.status === "running") && (
+                                    ? "失敗"
+                                    : analysis.status === "cancelled"
+                                      ? "キャンセル"
+                                      : analysis.status === "running"
+                                        ? "実行中"
+                                        : analysis.status === "queued"
+                                          ? "待機中"
+                                          : analysis.status}
+                              </span>
+                              {(analysis.status === "queued" ||
+                                analysis.status === "running") && (
                                 <div className="w-full">
                                   <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden relative">
                                     <div
                                       className="h-2 rounded-full transition-all duration-700 ease-out relative overflow-hidden bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500"
                                       style={{
                                         width: `${Math.min(
-                                          Math.max(displayProgress[analysis.id] ?? analysis.progress ?? 5, 5),
-                                          100
+                                          Math.max(
+                                            displayProgress[analysis.id] ??
+                                              analysis.progress ??
+                                              5,
+                                            5,
+                                          ),
+                                          100,
                                         )}%`,
                                         backgroundSize: "200% 100%",
-                                        animation: "progress-gradient 3s ease infinite",
+                                        animation:
+                                          "progress-gradient 3s ease infinite",
                                       }}
                                     >
                                       {/* アニメーション効果: シマー */}
@@ -791,122 +927,127 @@ function HistoryContent() {
                                   </div>
                                   <p className="text-xs text-gray-600 mt-1">
                                     {Math.min(
-                                      Math.max(displayProgress[analysis.id] ?? analysis.progress ?? 0, 0),
-                                      100
+                                      Math.max(
+                                        displayProgress[analysis.id] ??
+                                          analysis.progress ??
+                                          0,
+                                        0,
+                                      ),
+                                      100,
                                     )}
                                     %
                                   </p>
                                 </div>
                               )}
-                            {analysis.status === "failed" &&
-                              analysis.error_message && (
-                                <div className="mt-1 max-w-[300px] sm:max-w-[400px] md:max-w-[500px]">
-                                  <div className="p-2 bg-red-50 border border-red-300 rounded text-xs text-red-800 break-words">
-                                    <div className="flex items-start mb-1">
-                                      <svg
-                                        className="w-3 h-3 mr-1 mt-0.5 text-red-600 flex-shrink-0"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                        />
-                                      </svg>
-                                      <strong className="text-red-900">
-                                        エラー:
-                                      </strong>
-                                    </div>
-                                    <div className="ml-4 leading-relaxed">
-                                      {analysis.error_message
-                                        .split("\n")
-                                        .slice(0, 2)
-                                        .map((line, i) => {
-                                          const trimmed = line.trim();
-                                          if (trimmed.match(/^【.*】/)) {
-                                            return (
-                                              <div
-                                                key={i}
-                                                className="font-bold text-red-900 mt-1 mb-0.5 first:mt-0 text-xs"
-                                              >
-                                                {trimmed}
-                                              </div>
-                                            );
-                                          } else if (trimmed !== "") {
-                                            return (
-                                              <div
-                                                key={i}
-                                                className="mb-0.5 text-xs break-words"
-                                              >
-                                                {trimmed.length > 50
-                                                  ? `${trimmed.substring(0, 50)}...`
-                                                  : trimmed}
-                                              </div>
-                                            );
-                                          }
-                                          return null;
-                                        })}
-                                      {analysis.error_message.split("\n").length >
-                                        2 && (
-                                        <div className="text-red-600 mt-1 italic text-xs">
-                                          ... (詳細は結果ページで確認)
-                                        </div>
-                                      )}
+                              {analysis.status === "failed" &&
+                                analysis.error_message && (
+                                  <div className="mt-1 max-w-[300px] sm:max-w-[400px] md:max-w-[500px]">
+                                    <div className="p-2 bg-red-50 border border-red-300 rounded text-xs text-red-800 break-words">
+                                      <div className="flex items-start mb-1">
+                                        <svg
+                                          className="w-3 h-3 mr-1 mt-0.5 text-red-600 flex-shrink-0"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                          />
+                                        </svg>
+                                        <strong className="text-red-900">
+                                          エラー:
+                                        </strong>
+                                      </div>
+                                      <div className="ml-4 leading-relaxed">
+                                        {analysis.error_message
+                                          .split("\n")
+                                          .slice(0, 2)
+                                          .map((line, i) => {
+                                            const trimmed = line.trim();
+                                            if (trimmed.match(/^【.*】/)) {
+                                              return (
+                                                <div
+                                                  key={i}
+                                                  className="font-bold text-red-900 mt-1 mb-0.5 first:mt-0 text-xs"
+                                                >
+                                                  {trimmed}
+                                                </div>
+                                              );
+                                            } else if (trimmed !== "") {
+                                              return (
+                                                <div
+                                                  key={i}
+                                                  className="mb-0.5 text-xs break-words"
+                                                >
+                                                  {trimmed.length > 50
+                                                    ? `${trimmed.substring(0, 50)}...`
+                                                    : trimmed}
+                                                </div>
+                                              );
+                                            }
+                                            return null;
+                                          })}
+                                        {analysis.error_message.split("\n")
+                                          .length > 2 && (
+                                          <div className="text-red-600 mt-1 italic text-xs">
+                                            ... (詳細は結果ページで確認)
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              )}
-                          </div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
-                          {formatMetric(analysis.metrics, "entries")}
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
-                          {formatMetric(analysis.metrics, "length_percent")}
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
-                          {formatMetric(analysis.metrics, "umf")}
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
-                          {formatMetric(analysis.metrics, "mean_score")}
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
-                          {formatMetric(analysis.metrics, "cis_num")}
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 min-w-[150px]">
-                          <div className="flex flex-row items-center gap-2 sm:gap-3">
-                            <button
-                              onClick={() =>
-                                router.push(
-                                  `/analysis/result?job_id=${analysis.id}`
-                                )
-                              }
-                              className="text-blue-600 hover:underline text-xs sm:text-sm whitespace-nowrap"
-                            >
-                              開く
-                            </button>
-                            {analysis.status === "done" && (
+                                )}
+                            </div>
+                          </td>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                            {formatMetric(analysis.metrics, "entries")}
+                          </td>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                            {formatMetric(analysis.metrics, "length_percent")}
+                          </td>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                            {formatMetric(analysis.metrics, "umf")}
+                          </td>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                            {formatMetric(analysis.metrics, "mean_score")}
+                          </td>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                            {formatMetric(analysis.metrics, "cis_num")}
+                          </td>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 min-w-[150px]">
+                            <div className="flex flex-row items-center gap-2 sm:gap-3">
                               <button
-                                onClick={() => handleRerun(analysis.id)}
-                                className="text-purple-600 hover:underline text-xs sm:text-sm whitespace-nowrap"
+                                onClick={() =>
+                                  router.push(
+                                    `/analysis/result?job_id=${analysis.id}`,
+                                  )
+                                }
+                                className="text-blue-600 hover:underline text-xs sm:text-sm whitespace-nowrap"
                               >
-                                再実行
+                                開く
                               </button>
-                            )}
-                            <button
-                              onClick={() => handleDelete(analysis.id)}
-                              className="text-red-600 hover:underline text-xs sm:text-sm whitespace-nowrap"
-                            >
-                              削除
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+                              {analysis.status === "done" && (
+                                <button
+                                  onClick={() => handleRerun(analysis.id)}
+                                  className="text-purple-600 hover:underline text-xs sm:text-sm whitespace-nowrap"
+                                >
+                                  再実行
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDelete(analysis.id)}
+                                className="text-red-600 hover:underline text-xs sm:text-sm whitespace-nowrap"
+                              >
+                                削除
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
                   </table>
                 </div>
               </div>

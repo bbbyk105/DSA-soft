@@ -47,6 +47,32 @@ type JobResult struct {
 	ScatterURL string `json:"scatter_url"`
 }
 
+// paramFloat64 は params から数値を取得し、欠損・nil・不正値のときは defaultVal を返す（CLI に "<nil>" を渡さないため）
+func paramFloat64(params map[string]interface{}, key string, defaultVal float64) float64 {
+	if v, ok := params[key]; ok && v != nil {
+		if f, ok := v.(float64); ok {
+			return f
+		}
+		if i, ok := v.(int); ok {
+			return float64(i)
+		}
+	}
+	return defaultVal
+}
+
+// paramInt は params から整数を取得し、欠損・nil・不正値のときは defaultVal を返す
+func paramInt(params map[string]interface{}, key string, defaultVal int) int {
+	if v, ok := params[key]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			return i
+		}
+		if f, ok := v.(float64); ok {
+			return int(f)
+		}
+	}
+	return defaultVal
+}
+
 type Manager struct {
 	jobs         map[string]*Job
 	mu           sync.RWMutex
@@ -459,11 +485,14 @@ func (m *Manager) executeJob(job *Job) {
 	fmt.Printf("[DEBUG] JobDir: %s\n", jobDir)
 
 	// Python CLIコマンドを構築（キャンセル可能なコンテキストを使用）
+	// sequence_ratio / min_structures が nil だと "<nil>" が渡って CLI が落ちるためフォールバック
+	seqRatio := paramFloat64(job.Params, "sequence_ratio", 0.7)
+	minStruct := paramInt(job.Params, "min_structures", 5)
 	cmd := exec.CommandContext(jobCtx, m.pythonPath, "-m", "dsa_cli", "run",
 		"--uniprot", job.UniProtID,
 		"--out", jobDir,
-		"--sequence-ratio", fmt.Sprintf("%v", job.Params["sequence_ratio"]),
-		"--min-structures", fmt.Sprintf("%v", job.Params["min_structures"]),
+		"--sequence-ratio", fmt.Sprintf("%v", seqRatio),
+		"--min-structures", fmt.Sprintf("%d", minStruct),
 	)
 	
 	// ジョブにコマンドを保存（キャンセル時に使用）

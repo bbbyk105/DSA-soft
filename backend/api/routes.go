@@ -38,6 +38,31 @@ type CreateJobRequest struct {
 	Params    map[string]interface{} `json:"params"`
 }
 
+// applyJobParamDefaults は params に欠損や nil がある場合に CLI 用デフォルトを設定する（再実行・古いデータ対策）
+func applyJobParamDefaults(params map[string]interface{}) {
+	if params == nil {
+		return
+	}
+	if v, ok := params["sequence_ratio"]; !ok || v == nil {
+		params["sequence_ratio"] = 0.7
+	}
+	if v, ok := params["min_structures"]; !ok || v == nil {
+		params["min_structures"] = 5
+	}
+	if _, ok := params["method"]; !ok {
+		params["method"] = "X-ray"
+	}
+	if v, ok := params["negative_pdbid"]; !ok || v == nil {
+		params["negative_pdbid"] = ""
+	}
+	if v, ok := params["cis_threshold"]; !ok || v == nil {
+		params["cis_threshold"] = 3.3
+	}
+	if v, ok := params["proc_cis"]; !ok || v == nil {
+		params["proc_cis"] = true
+	}
+}
+
 func (r *Routes) SetupRoutes(app *fiber.App) {
 	api := app.Group("/api")
 
@@ -93,10 +118,11 @@ func (r *Routes) createJob(c *fiber.Ctx) error {
 	if params == nil {
 		params = make(map[string]interface{})
 	}
-	if _, ok := params["sequence_ratio"]; !ok {
+	// nil やキーなしのときもデフォルトを設定（JSON null で --sequence-ratio <nil> になるのを防ぐ）
+	if v, ok := params["sequence_ratio"]; !ok || v == nil {
 		params["sequence_ratio"] = 0.7
 	}
-	if _, ok := params["min_structures"]; !ok {
+	if v, ok := params["min_structures"]; !ok || v == nil {
 		params["min_structures"] = 5
 	}
 	// methodパラメータのデフォルト設定（後方互換性のためxray_onlyもサポート）
@@ -786,6 +812,9 @@ func (r *Routes) rerunAnalysis(c *fiber.Ctx) error {
 	for k, v := range overrides {
 		params[k] = v
 	}
+
+	// 再実行時も CLI に必要なパラメータが nil/欠損だと失敗するためデフォルトを適用
+	applyJobParamDefaults(params)
 
 	// 新しいジョブを作成
 	job, err := r.jobManager.CreateJob(uniprotID, params)

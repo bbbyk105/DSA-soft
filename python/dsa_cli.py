@@ -74,76 +74,84 @@ def main():
     try:
         # 進捗出力
         print("STEP 1/5: Checking PDB availability...", file=sys.stderr, flush=True)
-        
+
         # まず全メソッドで確認（エラーメッセージ用）
         unidata = UniprotData(args.uniprot)
         all_methods = ["X-ray", "NMR", "EM"]
         method_counts = {}
         total_count = 0
-        
+
         for m in all_methods:
             test_list = unidata.pdblist(m)
             count = len(test_list)
             method_counts[m] = count
             total_count += count
-        
+
         # negative_pdbidの処理
         pdblist = unidata.pdblist(method)
         if args.negative_pdbid != "":
-            negative_list = re.split(r"[,\s]+", args.negative_pdbid.strip())
+            negative_list = re.split(r"[,\s]+", str(args.negative_pdbid).strip())
             negative_list_upper = [neg.upper() for neg in negative_list]
-            pdblist = [item for item in pdblist if item.upper() not in negative_list_upper]
-        
+            pdblist = [
+                item for item in pdblist if item.upper() not in negative_list_upper
+            ]
+
         if len(pdblist) < 1:
             # わかりやすいエラーメッセージを生成
-            method_name = "X-ray結晶構造解析のみ" if method == "X-ray" else "全ての構造決定手法"
-            
+            method_name = (
+                "X-ray結晶構造解析のみ" if method == "X-ray" else "全ての構造決定手法"
+            )
+
             error_parts = [
                 f"解析に必要なデータが見つかりませんでした。",
                 f"",
                 f"【入力されたUniProt ID】: {args.uniprot}",
                 f"【検索条件】: {method_name}",
             ]
-            
+
             if method == "X-ray":
-                error_parts.extend([
-                    f"",
-                    f"【見つかったデータの数】:",
-                    f"  - X-ray結晶構造解析: {method_counts.get('X-ray', 0)}件",
-                    f"  - NMR（核磁気共鳴）: {method_counts.get('NMR', 0)}件",
-                    f"  - 電子顕微鏡: {method_counts.get('EM', 0)}件",
-                    f"  - 合計: {total_count}件",
-                    f"",
-                    f"【解決方法】:",
-                    f"  X-ray結晶構造解析のデータだけでは解析できません。",
-                    f"  以下の手順で、他の方法で得られたデータも含めて解析できます：",
-                    f"",
-                    f"  1. 解析画面に戻る",
-                    f"  2. 「Method (PDB filter)」という項目を探す",
-                    f"  3. 選択を「X-ray」から「All」に変更する",
-                    f"  4. 再度解析を実行する",
-                    f"",
-                    f"  これにより、X-ray、NMR、電子顕微鏡の全てのデータを使用して解析できます。",
-                ])
+                error_parts.extend(
+                    [
+                        f"",
+                        f"【見つかったデータの数】:",
+                        f"  - X-ray結晶構造解析: {method_counts.get('X-ray', 0)}件",
+                        f"  - NMR（核磁気共鳴）: {method_counts.get('NMR', 0)}件",
+                        f"  - 電子顕微鏡: {method_counts.get('EM', 0)}件",
+                        f"  - 合計: {total_count}件",
+                        f"",
+                        f"【解決方法】:",
+                        f"  X-ray結晶構造解析のデータだけでは解析できません。",
+                        f"  以下の手順で、他の方法で得られたデータも含めて解析できます：",
+                        f"",
+                        f"  1. 解析画面に戻る",
+                        f"  2. 「Method (PDB filter)」という項目を探す",
+                        f"  3. 選択を「X-ray」から「All」に変更する",
+                        f"  4. 再度解析を実行する",
+                        f"",
+                        f"  これにより、X-ray、NMR、電子顕微鏡の全てのデータを使用して解析できます。",
+                    ]
+                )
             else:
-                error_parts.extend([
-                    f"",
-                    f"【見つかったデータの数】: {total_count}件",
-                    f"",
-                    f"【解決方法】:",
-                    f"  このUniProt IDには解析に使用できるデータが存在しないか、",
-                    f"  非常に少ない可能性があります。",
-                    f"",
-                    f"  以下の点を確認してください：",
-                    f"  - 入力したUniProt IDが正しいか確認する",
-                    f"  - 別のUniProt IDで試してみる",
-                ])
-            
+                error_parts.extend(
+                    [
+                        f"",
+                        f"【見つかったデータの数】: {total_count}件",
+                        f"",
+                        f"【解決方法】:",
+                        f"  このUniProt IDには解析に使用できるデータが存在しないか、",
+                        f"  非常に少ない可能性があります。",
+                        f"",
+                        f"  以下の点を確認してください：",
+                        f"  - 入力したUniProt IDが正しいか確認する",
+                        f"  - 別のUniProt IDで試してみる",
+                    ]
+                )
+
             if args.negative_pdbid != "":
                 error_parts.append(f"  - 除外しているPDB ID: {args.negative_pdbid}")
-            
+
             error_msg = "\n".join(error_parts)
-            
+
             result = {
                 "status": "failed",
                 "error": error_msg,
@@ -162,7 +170,7 @@ def main():
                     ensure_ascii=False,
                 )
             sys.exit(1)
-        
+
         # count_pdb関数も呼び出して互換性を保つ
         if not count_pdb(args.uniprot, method, args.negative_pdbid):
             # 上記のエラーハンドリングで既に処理されているので、ここには来ないはず
@@ -213,7 +221,7 @@ def main():
                 f"    - 解析画面の「Method (PDB filter)」を「All」に変更する\n"
                 f"    - これにより、X-ray、NMR、電子顕微鏡の全てのデータを使用できます\n"
             )
-            
+
             if args.negative_pdbid != "":
                 error_msg += (
                     f"\n"
@@ -221,7 +229,7 @@ def main():
                     f"    - 現在除外しているPDB ID: {args.negative_pdbid}\n"
                     f"    - 除外する必要がない場合は、この項目を空にする\n"
                 )
-            
+
             result = {
                 "status": "failed",
                 "error": error_msg,
@@ -339,6 +347,7 @@ def main():
 
     except Exception as e:
         import traceback
+
         error_msg = str(e)
         if not error_msg or error_msg == "0":
             # エラーメッセージが空または"0"の場合、詳細な情報を取得

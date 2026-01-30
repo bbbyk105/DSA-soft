@@ -84,11 +84,12 @@ export default function Home() {
               </CardContent>
             </Card>
           </div>
-          
+
           {/* 注意事項 */}
           <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
-              <strong>注意:</strong> 解析結果は最大100件まで保存されます。100件を超える場合、最も古い解析結果から自動的に削除されます。
+              <strong>注意:</strong>{" "}
+              解析結果は最大100件まで保存されます。100件を超える場合、最も古い解析結果から自動的に削除されます。
             </p>
           </div>
         </div>
@@ -109,6 +110,14 @@ export default function Home() {
               <CardContent>
                 <p className="text-sm text-gray-600">
                   UniProt IDを入力し、解析パラメータを設定します。
+                  <a
+                    href="https://www.uniprot.org/uniprotkb/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-1 text-blue-600 hover:underline"
+                  >
+                    UniProt IDを調べる
+                  </a>
                 </p>
               </CardContent>
             </Card>

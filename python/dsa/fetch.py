@@ -76,20 +76,24 @@ class UniprotData:
 
     def position(self, pdbid):
         """positionの取得"""
-        positiondata = self.pdbdata.at["position", pdbid].split(", ")
+        positiondata = str(self.pdbdata.at["position", pdbid]).split(", ")
         if len(positiondata) == 1:
-            _, posi = positiondata[0].split("=")
-            beg, end = posi.split("-")
-            beg = int(beg)
-            end = int(end)
+            eq_parts = positiondata[0].split("=")
+            posi = eq_parts[1] if len(eq_parts) > 1 else eq_parts[0]
+            dash_parts = posi.split("-")
+            beg = int(dash_parts[0]) if dash_parts else 0
+            end = int(dash_parts[1]) if len(dash_parts) > 1 else beg
         else:
             beg = []
             end = []
             for position in positiondata:
-                _, posi = position.split("=")
-                align_beg, align_end = posi.split("-")
-                beg.append(int(align_beg))
-                end.append(int(align_end))
+                eq_parts = position.split("=")
+                posi = eq_parts[1] if len(eq_parts) > 1 else eq_parts[0]
+                dash_parts = posi.split("-")
+                align_beg = int(dash_parts[0]) if dash_parts else 0
+                align_end = int(dash_parts[1]) if len(dash_parts) > 1 else align_beg
+                beg.append(align_beg)
+                end.append(align_end)
             beg = min(beg)
             end = max(end)
         return beg, end

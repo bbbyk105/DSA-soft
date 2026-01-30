@@ -12,13 +12,16 @@ from .fetch import UniprotData, CifData, convert_three, downloadpdb
 # numbaを条件付きインポート（オプショナル）
 try:
     from numba import jit
+
     NUMBA_AVAILABLE = True
 except ImportError:
     # numbaが利用できない場合は、デコレータとして何もしない関数を定義
     def jit(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
+
     NUMBA_AVAILABLE = False
 
 
@@ -111,8 +114,12 @@ def getcoord(trimsequence, atom_coord_dir="atom_coord/"):
     columns = trimseq.columns.tolist()
     pdbids = {}
     for col in columns:
-        pdbid, strand_id = col.split(" ")
-        pdbids.setdefault(pdbid, []).append(strand_id)
+        parts = str(col).strip().split()
+        pdbid = parts[0] if parts else ""
+        strand_id = parts[1] if len(parts) > 1 else ""
+        # 列名が "PDBID CHAIN" 形式でない（例: float 由来の "1.0" のみ）場合はスキップ
+        if pdbid and strand_id:
+            pdbids.setdefault(pdbid, []).append(strand_id)
 
     for pdbid, chain_id in pdbids.items():
         csv_path = os.path.join(atom_coord_dir, f"{pdbid}.csv")
@@ -194,8 +201,9 @@ def count_pdb(uniprotid, method="X-ray", negative_pdbid=""):
     """PDB数をカウント"""
     unidata = UniprotData(uniprotid)
     pdblist = unidata.pdblist(method)
-    if negative_pdbid != "":
-        negative_list = re.split(r"[,\s]+", negative_pdbid.strip())
+    neg_str = str(negative_pdbid or "").strip()
+    if neg_str:
+        negative_list = re.split(r"[,\s]+", neg_str)
         negative_list_upper = [neg.upper() for neg in negative_list]
         pdblist = [item for item in pdblist if item.upper() not in negative_list_upper]
     return len(pdblist) >= 1
@@ -219,8 +227,9 @@ def prep(
     len_seqdata = len(seqdata)
     pdblist = unidata.pdblist(method)
 
-    if negative_pdbid != "":
-        negative_list = re.split(r"[,\s]+", negative_pdbid.strip())
+    neg_str = str(negative_pdbid or "").strip()
+    if neg_str:
+        negative_list = re.split(r"[,\s]+", neg_str)
         negative_list_upper = [neg.upper() for neg in negative_list]
         pdblist = [item for item in pdblist if item.upper() not in negative_list_upper]
 
@@ -299,8 +308,9 @@ def run_DSA(
     sequence = convert_three(fasta)
     pdblist = unidata.pdblist(method)
 
-    if negative_pdbid != "":
-        negative_list = re.split(r"[,\s]+", negative_pdbid.strip())
+    neg_str = str(negative_pdbid or "").strip()
+    if neg_str:
+        negative_list = re.split(r"[,\s]+", neg_str)
         negative_list_upper = [neg.upper() for neg in negative_list]
         pdblist = [item for item in pdblist if item.upper() not in negative_list_upper]
 
@@ -315,7 +325,7 @@ def run_DSA(
         # 統計情報の計算
         log_data = {
             "uniprot_id": uniprotid,
-            "entries": len(set([i.split(" ")[0] for i in trimseqcol])),
+            "entries": len(set([str(i).split(" ")[0] for i in trimseqcol])),
             "chains": len(trimseqcol),
             "length": len(trimsequence),
             "length_percent": round((len(trimsequence) * 100 / len(sequence)), 1),
@@ -323,7 +333,7 @@ def run_DSA(
         }
 
         # 分解能の計算
-        pdbids = [i.split(" ")[0] for i in trimseqcol]
+        pdbids = [str(i).split(" ")[0] for i in trimseqcol]
         reso_list = []
         for pdbid in set(pdbids):
             reso = unidata.pdbdata.at["resolution", pdbid]
@@ -413,6 +423,10 @@ def run_DSA(
     else:
         return (
             pd.DataFrame(),
-            {"uniprot_id": uniprotid, "error": "Less than 3 chains"},
+            {
+                "uniprot_id": uniprotid,
+                "error": "Less than 3 chains",
+                "message_ja": "アライメントに必要な鎖が3本未満です。手法を変えるか、別のUniProt IDをお試しください。",
+            },
             pd.DataFrame(),
         )

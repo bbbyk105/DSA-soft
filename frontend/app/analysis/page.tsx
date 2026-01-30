@@ -184,6 +184,14 @@ function AnalysisContent() {
                   className="block text-sm font-medium mb-2"
                 >
                   UniProt ID(s) (複数の場合はカンマまたはスペース区切り) *
+                  <a
+                    href="https://www.uniprot.org/uniprotkb/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-2 text-blue-600 hover:underline text-xs font-normal"
+                  >
+                    UniProt IDを調べる
+                  </a>
                 </label>
                 <input
                   type="text"

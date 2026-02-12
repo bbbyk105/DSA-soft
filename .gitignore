@@ -31,9 +31,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Storage
-storage/
-backend/storage/
+# Storage（ルートの storage と backend のジョブ出力のみ無視、backend/storage/*.go はコミット対象）
+/storage/
+backend/storage/*/
 *.pdb
 *.cif
 pdb_files/

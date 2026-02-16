@@ -2,6 +2,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# 本番ビルドで API のオリジンを与える（docker-compose.prod の build.args から渡す）
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
 COPY package.json package-lock.json* ./
 RUN npm ci --legacy-peer-deps
 

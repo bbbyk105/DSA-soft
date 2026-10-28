@@ -31,7 +31,7 @@ Jupyter Notebook で確立された DSA（Distance Scoring Analysis）を、Web 
 - Docker & Docker Compose
 - Go 1.21+ (ローカル開発時)
 - Python 3.11+ (ローカル開発時)
-- Node.js 20+ (ローカル開発時)
+- Node.js 24 LTS (24.22.1+, ローカル開発時)
 
 ### Docker Compose で起動
 
